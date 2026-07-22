@@ -1,5 +1,8 @@
-[gd_resource type="Resource" format=3]
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/session/session_rules.gd" id="1_rules"]
 
 [resource]
-metadata/duration_seconds = 600.0
-metadata/score_goal = 100
+script = ExtResource("1_rules")
+duration_seconds = 600.0
+score_goal = 100

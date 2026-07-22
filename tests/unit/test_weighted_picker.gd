@@ -13,18 +13,29 @@ func test_weight_boundaries() -> void:
 	check(WeightedPickerRule.pick_index(weights, 0.93) == 3, "The 93 percent boundary must select index 3")
 
 
+func test_empty_or_non_positive_weights_return_invalid_index() -> void:
+	check(
+		WeightedPickerRule.pick_index(PackedFloat32Array(), 0.5) == -1,
+		"Empty weights must return the deterministic invalid index",
+	)
+	check(
+		WeightedPickerRule.pick_index(PackedFloat32Array([0.0, -5.0]), 0.5) == -1,
+		"Non-positive total weights must return the deterministic invalid index",
+	)
+
+
 func test_dog_catalog_uses_required_data() -> void:
 	var catalog := DogCatalogRule.new()
-	var dogs: Array = catalog.get("dogs") as Array
-	check(dogs.size() == 4, "Dog catalog must contain four dogs")
+	var entries: Array = catalog.get("entries") as Array
+	check(entries.size() == 4, "Dog catalog must contain four dogs")
 	var expected: Array[Dictionary] = [
 		{"id": &"street_dog", "score": 10, "weight": 55.0, "speed": 0.85},
 		{"id": &"corgi", "score": 25, "weight": 25.0, "speed": 0.95},
 		{"id": &"golden_retriever", "score": 40, "weight": 13.0, "speed": 1.05},
 		{"id": &"shiba_inu", "score": 50, "weight": 7.0, "speed": 1.15},
 	]
-	for index in mini(dogs.size(), expected.size()):
-		var dog: Resource = dogs[index] as Resource
+	for index in mini(entries.size(), expected.size()):
+		var dog: Resource = entries[index] as Resource
 		var values := expected[index]
 		check(dog.get("id") == values.id, "Dog id must match the required catalog order")
 		check(dog.get("score") == values.score, "Dog score must match the required catalog data")
