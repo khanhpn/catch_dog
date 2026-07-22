@@ -94,6 +94,8 @@ func _world_position() -> Vector3:
 
 func _play_capture_feedback() -> void:
 	if not is_inside_tree():
+		# Off-tree instances cannot run a Tween, but deferred Object calls still flush on the main loop.
+		free.call_deferred()
 		return
 	var tween := create_tween()
 	tween.tween_property(self, "scale", Vector3.ZERO, capture_effect_duration)

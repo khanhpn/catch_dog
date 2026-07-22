@@ -8,16 +8,29 @@ const DogCatalogRule = preload("res://src/dogs/dog_catalog.gd")
 const DogStatsRule = preload("res://src/dogs/dog_stats.gd")
 const SpawnPointRule = preload("res://src/dogs/spawn_point.gd")
 const WeightedPickerRule = preload("res://src/dogs/weighted_picker.gd")
+const ACTIVE_DOG_LIMIT := 6
+const MINIMUM_PLAYER_DISTANCE := 20.0
+const RETRY_DELAY_SECONDS := 2.0
 
 
 @export var player: Node3D
 @export var camera: Camera3D
 @export var map_bounds := Rect2(-100.0, -100.0, 200.0, 200.0)
-@export var minimum_player_distance := 20.0
+@export var minimum_player_distance := MINIMUM_PLAYER_DISTANCE:
+	set(value):
+		minimum_player_distance = maxf(value, MINIMUM_PLAYER_DISTANCE)
 @export var spawn_clear_radius := 1.0
 @export_flags_3d_physics var spawn_collision_mask := 1
-@export var max_active_dogs := 6
-@export var retry_delay := 2.0
+var max_active_dogs: int:
+	get:
+		return ACTIVE_DOG_LIMIT
+	set(_value):
+		pass
+var retry_delay: float:
+	get:
+		return RETRY_DELAY_SECONDS
+	set(_value):
+		pass
 var spawn_attempt_count := 0
 var _catalog := DogCatalogRule.new()
 var _active_dogs: Array[DogAgentRule] = []
@@ -25,7 +38,11 @@ var _test_markers: Array[SpawnPointRule] = []
 var _test_markers_set := false
 var _test_marker_validation: Dictionary = {}
 var _test_roll_source := Callable()
-var _retry_timer: Timer
+var _test_retry_scheduler := Callable()
+# Retry ownership is explicit so repeated failures cannot create parallel timers.
+var _retry_pending := false
+var _retry_started := false
+var _retry_timer: SceneTreeTimer
 var _maintenance_scheduled := false
 var _is_shutting_down := false
 
@@ -42,23 +59,25 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 	_is_shutting_down = true
+	_release_retry_timer()
+	_retry_started = false
 
 
 func set_test_roll_source(source: Callable) -> void:
 	_test_roll_source = source
 
 
-func set_test_markers(markers: Array) -> void:
-	_test_markers.clear()
-	for marker: Variant in markers:
-		var typed_marker := marker as SpawnPointRule
-		if typed_marker != null:
-			_test_markers.append(typed_marker)
+func set_test_retry_scheduler(scheduler: Callable) -> void:
+	_test_retry_scheduler = scheduler
+
+
+func set_test_markers(markers: Array[SpawnPointRule]) -> void:
+	_test_markers = markers.duplicate()
 	_test_markers_set = true
 
 
 func set_test_marker_validation(
-	marker: Node3D,
+	marker: SpawnPointRule,
 	visible: bool,
 	blocked: bool,
 	in_bounds: bool,
@@ -94,7 +113,7 @@ func choose_spawn_marker() -> SpawnPointRule:
 
 func request_dog_spawn() -> DogAgentRule:
 	spawn_attempt_count += 1
-	if active_dog_count() >= max_active_dogs:
+	if active_dog_count() >= ACTIVE_DOG_LIMIT:
 		return null
 	var marker := choose_spawn_marker()
 	if marker == null:
@@ -123,7 +142,7 @@ func active_dog_count() -> int:
 	return _active_dogs.size()
 
 
-func get_retry_timer() -> Timer:
+func get_retry_timer() -> SceneTreeTimer:
 	return _retry_timer if is_instance_valid(_retry_timer) else null
 
 
@@ -141,6 +160,7 @@ func _spawn_markers() -> Array[SpawnPointRule]:
 
 
 func _is_spawn_marker_valid(marker: SpawnPointRule) -> bool:
+	# Required production adapters fail closed; a marker is never assumed safe.
 	if player == null:
 		return false
 	var marker_position := _node_position(marker)
@@ -196,44 +216,49 @@ func _node_position(node: Node3D) -> Vector3:
 
 
 func _schedule_retry() -> void:
-	if is_instance_valid(_retry_timer):
+	if _retry_pending:
 		return
-	_retry_timer = Timer.new()
-	_retry_timer.name = "SpawnRetryTimer"
-	_retry_timer.one_shot = true
-	_retry_timer.wait_time = retry_delay
-	_retry_timer.timeout.connect(_on_retry_timeout)
-	add_child(_retry_timer)
+	_retry_pending = true
 	_start_pending_retry()
 
 
 func _start_pending_retry() -> void:
-	if (
-		is_instance_valid(_retry_timer)
-		and _retry_timer.is_inside_tree()
-		and _retry_timer.is_stopped()
-	):
-		_retry_timer.start()
+	if not _retry_pending or _retry_started or not is_inside_tree():
+		return
+	_retry_started = true
+	var timeout_callback := Callable(self, "_on_retry_timeout")
+	if _test_retry_scheduler.is_valid():
+		_test_retry_scheduler.call(RETRY_DELAY_SECONDS, timeout_callback)
+		return
+	_retry_timer = get_tree().create_timer(RETRY_DELAY_SECONDS)
+	_retry_timer.timeout.connect(timeout_callback, CONNECT_ONE_SHOT)
 
 
 func _cancel_retry() -> void:
-	if not is_instance_valid(_retry_timer):
-		return
-	var timer := _retry_timer
+	_retry_pending = false
+	_retry_started = false
+	_release_retry_timer()
+
+
+func _release_retry_timer() -> void:
+	var timeout_callback := Callable(self, "_on_retry_timeout")
+	if is_instance_valid(_retry_timer) and _retry_timer.timeout.is_connected(timeout_callback):
+		_retry_timer.timeout.disconnect(timeout_callback)
 	_retry_timer = null
-	timer.queue_free()
 
 
 func _on_retry_timeout() -> void:
-	var timer := _retry_timer
-	_retry_timer = null
-	if is_instance_valid(timer):
-		timer.queue_free()
+	if not _retry_pending:
+		return
+	_retry_pending = false
+	_retry_started = false
+	_release_retry_timer()
 	_maintain_population()
 
 
 func _on_dog_captured(_stats: DogStatsRule, dog: DogAgentRule) -> void:
 	_active_dogs.erase(dog)
+	# Capture feedback later emits tree_exiting; both notifications share one deferred fill.
 	_schedule_population_maintenance()
 
 
@@ -250,6 +275,7 @@ func _schedule_population_maintenance() -> void:
 		return
 	if _maintenance_scheduled:
 		return
+	# Deferring avoids mutating the director's children during capture/tree-exit signals.
 	_maintenance_scheduled = true
 	call_deferred("_run_scheduled_population_maintenance")
 
@@ -261,7 +287,7 @@ func _run_scheduled_population_maintenance() -> void:
 
 
 func _maintain_population() -> void:
-	while active_dog_count() < max_active_dogs:
+	while active_dog_count() < ACTIVE_DOG_LIMIT:
 		if request_dog_spawn() == null:
 			return
 

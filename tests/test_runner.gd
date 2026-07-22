@@ -2,6 +2,11 @@ extends SceneTree
 
 
 func _init() -> void:
+	_run_tests.call_deferred()
+
+
+func _run_tests() -> void:
+	await process_frame
 	var failures := 0
 	var filters := OS.get_environment("CATCH_DOG_TEST_FILTER").split(",", false)
 	var test_files := _test_files("res://tests")
@@ -15,6 +20,7 @@ func _init() -> void:
 				continue
 		var suite: Node = (load(path) as Script).new()
 		root.add_child(suite)
+		await process_frame
 		var test_methods := PackedStringArray()
 		for method in suite.get_method_list():
 			var name := String(method.name)
@@ -22,12 +28,13 @@ func _init() -> void:
 				test_methods.append(name)
 		test_methods.sort()
 		for test_method in test_methods:
-			suite.call(test_method)
+			await suite.call(test_method)
 		var failure_messages: PackedStringArray = suite.get("failure_messages") as PackedStringArray
 		failures += failure_messages.size()
 		for message in failure_messages:
 			printerr("FAIL %s: %s" % [path, message])
 		suite.queue_free()
+		await process_frame
 	quit(0 if failures == 0 else 1)
 
 
