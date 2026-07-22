@@ -1,0 +1,38 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://src/guards/guard_agent.gd" id="1_guard"]
+[ext_resource type="Resource" path="res://src/guards/guard_stats.tres" id="2_stats"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape_guard"]
+radius = 0.55
+height = 1.9
+
+[sub_resource type="BoxMesh" id="BoxMesh_guard"]
+size = Vector3(1.1, 0.8, 2.0)
+
+[node name="GuardAgent" type="CharacterBody3D"]
+collision_layer = 4
+collision_mask = 1
+script = ExtResource("1_guard")
+stats = ExtResource("2_stats")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+position = Vector3(0, 0.95, 0)
+shape = SubResource("CapsuleShape_guard")
+
+[node name="Visual" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.5, 0)
+mesh = SubResource("BoxMesh_guard")
+
+[node name="NavigationAgent3D" type="NavigationAgent3D" parent="."]
+
+[node name="CaptureArea" type="Area3D" parent="."]
+collision_layer = 0
+collision_mask = 0
+monitoring = false
+monitorable = false
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="CaptureArea"]
+position = Vector3(0, 0.95, -0.8)
+shape = SubResource("CapsuleShape_guard")
+disabled = true

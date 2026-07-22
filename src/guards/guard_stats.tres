@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="GuardStats" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/guards/guard_stats.gd" id="1_stats"]
+
+[resource]
+script = ExtResource("1_stats")
+max_speed_mps = 15.0
+acceleration_mps2 = 20.0
+fuel_capacity = 30.0
+idle_fuel_rate = 0.3
+throttle_fuel_rate = 3.0
+path_refresh_hz = 4.0
+max_prediction_seconds = 1.25
+max_prediction_distance = 12.0
