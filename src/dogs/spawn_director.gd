@@ -11,6 +11,8 @@ const WeightedPickerRule = preload("res://src/dogs/weighted_picker.gd")
 const ACTIVE_DOG_LIMIT := 6
 const MINIMUM_PLAYER_DISTANCE := 20.0
 const RETRY_DELAY_SECONDS := 2.0
+const WORLD_COLLISION_LAYER := 1
+const SPAWN_OCCUPANCY_MASK := WORLD_COLLISION_LAYER | DogAgentRule.DOG_COLLISION_LAYER
 
 
 @export var player: Node3D
@@ -20,7 +22,9 @@ const RETRY_DELAY_SECONDS := 2.0
 	set(value):
 		minimum_player_distance = maxf(value, MINIMUM_PLAYER_DISTANCE)
 @export var spawn_clear_radius := 1.0
-@export_flags_3d_physics var spawn_collision_mask := 1
+@export_flags_3d_physics var spawn_collision_mask := SPAWN_OCCUPANCY_MASK:
+	set(value):
+		spawn_collision_mask = value | SPAWN_OCCUPANCY_MASK
 var max_active_dogs: int:
 	get:
 		return ACTIVE_DOG_LIMIT
@@ -194,6 +198,8 @@ func _is_marker_blocked(marker: SpawnPointRule, marker_position: Vector3) -> boo
 	var override := _test_validation_for(marker)
 	if not override.is_empty():
 		return bool(override.blocked)
+	if _is_reserved_by_active_dog(marker_position):
+		return true
 	if not is_inside_tree():
 		return true
 	var query := PhysicsShapeQueryParameters3D.new()
@@ -205,6 +211,14 @@ func _is_marker_blocked(marker: SpawnPointRule, marker_position: Vector3) -> boo
 	query.collide_with_areas = true
 	query.collide_with_bodies = true
 	return not get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty()
+
+
+func _is_reserved_by_active_dog(marker_position: Vector3) -> bool:
+	_prune_active_dogs()
+	for dog: DogAgentRule in _active_dogs:
+		if _node_position(dog).distance_to(marker_position) <= spawn_clear_radius:
+			return true
+	return false
 
 
 func _test_validation_for(marker: SpawnPointRule) -> Dictionary:

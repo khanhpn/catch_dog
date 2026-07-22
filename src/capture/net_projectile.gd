@@ -26,7 +26,7 @@ var _source_body_ref: WeakRef
 
 func _init() -> void:
 	collision_layer = 0
-	collision_mask = DogAgentRule.COLLISION_LAYER
+	collision_mask = DogAgentRule.DOG_COLLISION_LAYER
 
 
 func _ready() -> void:

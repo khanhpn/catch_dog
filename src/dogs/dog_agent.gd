@@ -8,7 +8,7 @@ const DogStatsRule = preload("res://src/dogs/dog_stats.gd")
 signal captured(stats: DogStatsRule)
 
 
-const COLLISION_LAYER := 2
+const DOG_COLLISION_LAYER := 2
 const CAPTURE_TARGET_HEIGHT := 0.6
 
 

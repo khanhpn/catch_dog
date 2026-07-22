@@ -221,9 +221,10 @@ func test_real_camera_frustum_rejects_visible_marker_and_permits_behind_candidat
 	add_child(behind_marker)
 	director.player = player
 	director.camera = camera
+	director.set_test_markers(_markers())
 	add_child(director)
-	director.set_test_markers(_markers(visible_marker, behind_marker))
 	await get_tree().physics_frame
+	director.set_test_markers(_markers(visible_marker, behind_marker))
 
 	check(
 		director.choose_spawn_marker() == behind_marker,
@@ -260,9 +261,10 @@ func test_real_shape_query_rejects_occupied_marker_and_accepts_clear_marker() ->
 	add_child(obstacle)
 	director.player = player
 	director.camera = camera
+	director.set_test_markers(_markers())
 	add_child(director)
-	director.set_test_markers(_markers(blocked_marker, clear_marker))
 	await get_tree().physics_frame
+	director.set_test_markers(_markers(blocked_marker, clear_marker))
 
 	check(
 		director.choose_spawn_marker() == clear_marker,
@@ -273,6 +275,78 @@ func test_real_shape_query_rejects_occupied_marker_and_accepts_clear_marker() ->
 	obstacle.queue_free()
 	clear_marker.queue_free()
 	blocked_marker.queue_free()
+	camera.queue_free()
+	player.queue_free()
+	await get_tree().process_frame
+
+
+func test_real_shape_query_rejects_dog_layer_occupancy_and_accepts_clear_marker() -> void:
+	var director: SpawnDirectorRule = _make_director()
+	if director == null:
+		return
+	var player := Node3D.new()
+	var camera := Camera3D.new()
+	var occupied_marker: SpawnPointRule = _make_marker(Vector3(0.0, 0.0, 30.0))
+	var clear_marker: SpawnPointRule = _make_marker(Vector3(0.0, 0.0, 50.0))
+	var occupying_dog: DogAgentRule = _make_dog()
+	occupying_dog.position = occupied_marker.position
+	add_child(player)
+	add_child(camera)
+	add_child(occupied_marker)
+	add_child(clear_marker)
+	add_child(occupying_dog)
+	director.player = player
+	director.camera = camera
+	director.set_test_markers(_markers())
+	add_child(director)
+	await get_tree().physics_frame
+	director.set_test_markers(_markers(occupied_marker, clear_marker))
+
+	check(
+		director.choose_spawn_marker() == clear_marker,
+		"The production occupancy query must reject a marker occupied by a dedicated-layer dog",
+	)
+
+	director.queue_free()
+	occupying_dog.queue_free()
+	clear_marker.queue_free()
+	occupied_marker.queue_free()
+	camera.queue_free()
+	player.queue_free()
+	await get_tree().process_frame
+
+
+func test_production_population_fill_uses_six_distinct_clear_markers() -> void:
+	var director: SpawnDirectorRule = _make_director()
+	if director == null:
+		return
+	var player := Node3D.new()
+	var camera := Camera3D.new()
+	var markers: Array[SpawnPointRule] = []
+	for index in range(6):
+		var marker: SpawnPointRule = _make_marker(Vector3(0.0, 0.0, 30.0 + index * 10.0))
+		markers.append(marker)
+		add_child(marker)
+	add_child(player)
+	add_child(camera)
+	director.player = player
+	director.camera = camera
+	director.set_test_markers(markers)
+
+	add_child(director)
+	await get_tree().physics_frame
+
+	var occupied_positions := {}
+	for child: Node in director.get_children():
+		var dog := child as DogAgentRule
+		if dog != null:
+			occupied_positions[dog.global_position] = true
+	check(director.active_dog_count() == 6, "Production population fill must still create six active dogs")
+	check(occupied_positions.size() == 6, "Production population fill must not reuse a marker occupied earlier in the same fill")
+
+	director.queue_free()
+	for marker: SpawnPointRule in markers:
+		marker.queue_free()
 	camera.queue_free()
 	player.queue_free()
 	await get_tree().process_frame
@@ -315,9 +389,14 @@ func test_required_spawn_configuration_cannot_be_weakened() -> void:
 	director.max_active_dogs = 99
 	director.retry_delay = 0.01
 	director.minimum_player_distance = 5.0
+	director.spawn_collision_mask = 0
 
 	check(director.max_active_dogs == 6, "The active dog population must remain exactly six")
 	check(is_equal_approx(director.retry_delay, 2.0), "The retry delay must remain exactly two seconds")
+	check(
+		(director.spawn_collision_mask & 3) == 3,
+		"Spawn occupancy must always include world and dedicated dog physics layers",
+	)
 	check(
 		is_equal_approx(director.minimum_player_distance, 20.0),
 		"Configured player distance must clamp to at least 20 meters",
