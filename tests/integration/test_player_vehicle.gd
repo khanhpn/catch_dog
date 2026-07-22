@@ -128,14 +128,14 @@ func test_pickup_restores_35_percent_with_nonstandard_capacity() -> void:
 	vehicle.free()
 
 
-func test_stopped_without_fuel_emits_once_at_threshold() -> void:
+func test_stopped_without_fuel_emits_once_after_post_move_evaluation() -> void:
 	var vehicle: Variant = PlayerVehicleScene.instantiate()
 	add_child(vehicle)
 	var stopped_emissions := [0]
 	vehicle.stopped_without_fuel.connect(func() -> void: stopped_emissions[0] += 1)
 
 	vehicle.simulate_controls(1.0, 0.0, 100.0)
-	check(stopped_emissions[0] == 0, "An empty moving vehicle must not emit the stopped signal")
+	check(stopped_emissions[0] == 0, "Control simulation must wait for post-move terminal evaluation")
 	vehicle.simulate_controls(0.0, 0.0, 100.0)
 	vehicle._check_stopped_without_fuel()
 	vehicle.simulate_controls(0.0, 0.0, 1.0)
@@ -193,6 +193,48 @@ func test_standstill_cannot_yaw_or_lean() -> void:
 
 	check(is_zero_approx(vehicle.rotation.y), "A stationary vehicle must not yaw from steering")
 	check(is_zero_approx(visual_pivot.rotation.z), "A stationary vehicle must not visually lean")
+	vehicle.free()
+
+
+func test_camera_follow_transform_smooths_translation_and_converges() -> void:
+	var vehicle: Variant = PlayerVehicleScene.instantiate()
+	add_child(vehicle)
+	var camera_rig: Variant = vehicle.get_node("CameraRig")
+	check(camera_rig.has_method("smooth_follow_transform"), "Camera rig must expose deterministic transform smoothing")
+	if not camera_rig.has_method("smooth_follow_transform"):
+		vehicle.free()
+		return
+	var current := Transform3D.IDENTITY
+	var desired := Transform3D(Basis.IDENTITY, Vector3(10.0, 0.0, 0.0))
+
+	var first: Transform3D = camera_rig.smooth_follow_transform(current, desired, 0.1)
+	check(first.origin.x > 0.0 and first.origin.x < desired.origin.x, "One camera update must advance between old and desired positions")
+
+	var converged := first
+	for index in range(20):
+		converged = camera_rig.smooth_follow_transform(converged, desired, 0.1)
+	check(converged.origin.distance_to(desired.origin) < 0.001, "Repeated camera updates must converge to translated target pose")
+	vehicle.free()
+
+
+func test_camera_follow_transform_smooths_yaw_and_converges() -> void:
+	var vehicle: Variant = PlayerVehicleScene.instantiate()
+	add_child(vehicle)
+	var camera_rig: Variant = vehicle.get_node("CameraRig")
+	check(camera_rig.has_method("smooth_follow_transform"), "Camera rig must expose deterministic transform smoothing")
+	if not camera_rig.has_method("smooth_follow_transform"):
+		vehicle.free()
+		return
+	var current := Transform3D.IDENTITY
+	var desired := Transform3D(Basis(Vector3.UP, PI * 0.5), Vector3.ZERO)
+
+	var first: Transform3D = camera_rig.smooth_follow_transform(current, desired, 0.1)
+	check(first.basis.z.x > 0.0 and first.basis.z.z > 0.0, "One camera update must rotate between old and desired yaw")
+
+	var converged := first
+	for index in range(20):
+		converged = camera_rig.smooth_follow_transform(converged, desired, 0.1)
+	check(converged.basis.z.dot(desired.basis.z) > 0.9999, "Repeated camera updates must converge to target yaw")
 	vehicle.free()
 
 

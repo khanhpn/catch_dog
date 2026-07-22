@@ -15,6 +15,7 @@ const PlayerVehicleRule = preload("res://src/vehicle/player_vehicle.gd")
 
 
 var _target: PlayerVehicleRule
+var _smoothed_follow_transform := Transform3D.IDENTITY
 
 
 @onready var _camera := $Camera3D as Camera3D
@@ -27,7 +28,8 @@ func _ready() -> void:
 		set_physics_process(false)
 		return
 	top_level = true
-	global_transform = Transform3D(Basis.IDENTITY, _focus_position())
+	global_transform = Transform3D.IDENTITY
+	_smoothed_follow_transform = _target_follow_transform()
 	_collision_probe.add_exception(_target)
 	_camera.global_position = _desired_camera_position()
 	_camera.look_at(_focus_position(), Vector3.UP)
@@ -36,9 +38,12 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if not is_instance_valid(_target):
 		return
+	_smoothed_follow_transform = smooth_follow_transform(
+		_smoothed_follow_transform,
+		_target_follow_transform(),
+		delta,
+	)
 	var focus := _focus_position()
-	var smoothing_weight := 1.0 - exp(-position_smoothing * delta)
-	global_position = global_position.lerp(focus, smoothing_weight)
 	var desired_position := _desired_camera_position()
 	var desired_distance := focus.distance_to(desired_position)
 	var current_distance := focus.distance_to(_camera.global_position)
@@ -60,7 +65,7 @@ func _physics_process(delta: float) -> void:
 func _focus_position() -> Vector3:
 	if not is_instance_valid(_target):
 		return global_position
-	return _target.global_position + Vector3.UP * focus_height
+	return _smoothed_follow_transform.origin
 
 
 func _desired_camera_position() -> Vector3:
@@ -69,7 +74,16 @@ func _desired_camera_position() -> Vector3:
 	var max_speed := maxf(_target.stats.max_speed_mps, 0.01)
 	var ratio: float = clampf(absf(_target.forward_speed) / max_speed, 0.0, 1.0)
 	var distance := base_distance + speed_pullback * ratio
-	return _focus_position() + _target.global_basis.z * distance + Vector3.UP * follow_height
+	return _focus_position() + _smoothed_follow_transform.basis.z * distance + Vector3.UP * follow_height
+
+
+func smooth_follow_transform(
+	current_transform: Transform3D,
+	desired_transform: Transform3D,
+	delta: float,
+) -> Transform3D:
+	var smoothing_weight := 1.0 - exp(-position_smoothing * maxf(delta, 0.0))
+	return current_transform.interpolate_with(desired_transform, smoothing_weight)
 
 
 func resolve_camera_distance(
@@ -95,3 +109,10 @@ func _obstruction_distance(focus: Vector3, desired: Vector3) -> float:
 	if not _collision_probe.is_colliding():
 		return focus.distance_to(desired)
 	return focus.distance_to(_collision_probe.get_collision_point(0))
+
+
+func _target_follow_transform() -> Transform3D:
+	return Transform3D(
+		_target.global_basis.orthonormalized(),
+		_target.global_position + Vector3.UP * focus_height,
+	)
