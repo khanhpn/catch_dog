@@ -1,7 +1,7 @@
 .godot/
+.DS_Store
 .superpowers/
 builds/
 exports/
 *.tmp
 *.log
-
