@@ -1,0 +1,25 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://src/dogs/dog_agent.gd" id="1_dog"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape_dog"]
+radius = 0.4
+height = 1.2
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_dog"]
+radius = 0.4
+height = 1.2
+
+[node name="DogAgent" type="CharacterBody3D"]
+script = ExtResource("1_dog")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+position = Vector3(0, 0.6, 0)
+shape = SubResource("CapsuleShape_dog")
+
+[node name="Visual" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.6, 0)
+mesh = SubResource("CapsuleMesh_dog")
+
+[node name="NavigationAgent3D" type="NavigationAgent3D" parent="."]
+avoidance_enabled = true
