@@ -3,6 +3,7 @@ extends RefCounted
 
 
 const DogAgentRule = preload("res://src/dogs/dog_agent.gd")
+const DogStatsRule = preload("res://src/dogs/dog_stats.gd")
 
 
 signal target_changed(target: DogAgentRule)
@@ -10,7 +11,6 @@ signal target_changed(target: DogAgentRule)
 
 const HALF_ANGLE_DEGREES := 30.0
 const MAX_RANGE_METERS := 24.0
-const _RANK_EPSILON := 0.000001
 var _target_ref: WeakRef
 var _target_instance_id := 0
 
@@ -33,7 +33,8 @@ func select_from_candidates(
 	has_line_of_sight: Callable = Callable(),
 ) -> DogAgentRule:
 	var forward := -origin.basis.z.normalized()
-	var minimum_dot := cos(deg_to_rad(HALF_ANGLE_DEGREES))
+	# Match Vector3's float32 representation without widening the cone via a tolerance.
+	var minimum_dot := Vector3(cos(deg_to_rad(HALF_ANGLE_DEGREES)), 0.0, 0.0).x
 	var best: DogAgentRule
 	var best_dot := -1.0
 	var best_distance := INF
@@ -45,14 +46,11 @@ func select_from_candidates(
 		if distance <= 0.0 or distance > MAX_RANGE_METERS:
 			continue
 		var alignment := forward.dot(offset / distance)
-		if alignment + _RANK_EPSILON < minimum_dot:
+		if alignment < minimum_dot:
 			continue
 		if has_line_of_sight.is_valid() and not bool(has_line_of_sight.call(dog)):
 			continue
-		if (
-			alignment > best_dot + _RANK_EPSILON
-			or (is_equal_approx(alignment, best_dot) and distance < best_distance)
-		):
+		if alignment > best_dot or (alignment == best_dot and distance < best_distance):
 			best = dog
 			best_dot = alignment
 			best_distance = distance
@@ -94,7 +92,7 @@ func _is_active(dog: DogAgentRule) -> bool:
 
 
 func _dog_position(dog: DogAgentRule) -> Vector3:
-	return dog.global_position if dog.is_inside_tree() else dog.position
+	return dog.capture_target_position()
 
 
 func _set_target(target: DogAgentRule) -> void:
@@ -123,7 +121,7 @@ func _disconnect_target_signals() -> void:
 		target.tree_exiting.disconnect(_on_target_tree_exiting)
 
 
-func _on_target_captured(_stats) -> void:
+func _on_target_captured(_stats: DogStatsRule) -> void:
 	_set_target(null)
 
 

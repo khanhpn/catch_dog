@@ -21,6 +21,12 @@ var target_velocity_snapshot := Vector3.ZERO
 var initial_velocity := Vector3.ZERO
 var _distance_travelled := 0.0
 var _elapsed := 0.0
+var _source_body_ref: WeakRef
+
+
+func _init() -> void:
+	collision_layer = 0
+	collision_mask = DogAgentRule.COLLISION_LAYER
 
 
 func _ready() -> void:
@@ -32,12 +38,18 @@ func _physics_process(delta: float) -> void:
 	simulate_step(delta)
 
 
-func launch(origin: Vector3, target_position: Vector3, target_velocity: Vector3) -> void:
+func launch(
+	origin: Vector3,
+	target_position: Vector3,
+	target_velocity: Vector3,
+	source_body: CollisionObject3D = null,
+) -> void:
 	resolved = false
 	_distance_travelled = 0.0
 	_elapsed = 0.0
 	target_position_snapshot = target_position
 	target_velocity_snapshot = target_velocity
+	_set_source_body(source_body)
 	var travel_time := origin.distance_to(target_position) / speed if speed > 0.0 else 0.0
 	var predicted_target := target_position + target_velocity * travel_time
 	var direction := origin.direction_to(predicted_target)
@@ -53,10 +65,12 @@ func launch(origin: Vector3, target_position: Vector3, target_velocity: Vector3)
 
 
 func simulate_hit(body: Node) -> void:
-	if not _resolve_once():
+	if _is_source_body(body):
 		return
 	var dog := body as DogAgentRule
-	if dog == null or dog.state == DogAgentRule.State.CAPTURED:
+	if dog == null or not dog.is_capture_target_valid():
+		return
+	if not _resolve_once():
 		return
 	var captured_stats: DogStatsRule = dog.stats
 	if dog.capture():
@@ -86,8 +100,8 @@ func _resolve_once() -> bool:
 		return false
 	resolved = true
 	set_physics_process(false)
-	monitoring = false
-	monitorable = false
+	set_deferred("monitoring", false)
+	set_deferred("monitorable", false)
 	collision_layer = 0
 	collision_mask = 0
 	if is_inside_tree():
@@ -97,3 +111,15 @@ func _resolve_once() -> bool:
 
 func _on_body_entered(body: Node3D) -> void:
 	simulate_hit(body)
+
+
+func _set_source_body(source_body: CollisionObject3D) -> void:
+	_source_body_ref = null
+	if is_instance_valid(source_body):
+		_source_body_ref = weakref(source_body)
+
+
+func _is_source_body(body: Node) -> bool:
+	if _source_body_ref == null:
+		return false
+	return _source_body_ref.get_ref() == body

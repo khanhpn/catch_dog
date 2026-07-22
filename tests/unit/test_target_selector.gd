@@ -8,7 +8,7 @@ const TargetSelectorRule = preload("res://src/capture/target_selector.gd")
 
 func test_cone_includes_thirty_degrees_and_rejects_beyond_it() -> void:
 	var selector := TargetSelectorRule.new()
-	var boundary_dog := _make_dog(_direction_at_degrees(30.0) * 10.0)
+	var boundary_dog := _make_dog(_direction_at_degrees(30.0))
 	var outside_dog := _make_dog(_direction_at_degrees(30.1) * 10.0)
 
 	var selected: DogAgentRule = selector.select_from_candidates(
@@ -19,6 +19,20 @@ func test_cone_includes_thirty_degrees_and_rejects_beyond_it() -> void:
 
 	check(selected == boundary_dog, "The targeting cone must use an inclusive 30-degree half-angle")
 	boundary_dog.free()
+	outside_dog.free()
+
+
+func test_cone_rejects_a_candidate_only_barely_outside_thirty_degrees() -> void:
+	var selector := TargetSelectorRule.new()
+	var outside_dog := _make_dog(_direction_at_degrees(30.00001))
+
+	var selected: DogAgentRule = selector.select_from_candidates(
+		Transform3D.IDENTITY,
+		_one_dog(outside_dog),
+		func(_dog: DogAgentRule) -> bool: return true,
+	)
+
+	check(selected == null, "Any angular error greater than 30 degrees must be excluded without epsilon")
 	outside_dog.free()
 
 
@@ -52,6 +66,22 @@ func test_prefers_angular_alignment_before_distance() -> void:
 	check(selected == far_front_dog, "Angular error must rank before distance")
 	near_side_dog.free()
 	far_front_dog.free()
+
+
+func test_tiny_alignment_advantage_still_ranks_before_distance() -> void:
+	var selector := TargetSelectorRule.new()
+	var worse_dog := _make_dog(_direction_at_degrees(10.00001) * 0.5)
+	var better_dog := _make_dog(_direction_at_degrees(10.0))
+
+	var selected: DogAgentRule = selector.select_from_candidates(
+		Transform3D.IDENTITY,
+		_dogs(worse_dog, better_dog),
+		func(_dog: DogAgentRule) -> bool: return true,
+	)
+
+	check(selected == better_dog, "Any strictly better angular alignment must win before distance")
+	worse_dog.free()
+	better_dog.free()
 
 
 func test_uses_distance_to_break_equal_angle_ties() -> void:
@@ -141,7 +171,8 @@ func test_lock_clears_when_target_leaves_selection_constraints() -> void:
 
 func _make_dog(at_position: Vector3) -> DogAgentRule:
 	var dog := DogAgentRule.new()
-	dog.position = at_position
+	# Unit vectors describe the typed capture point, not the dog's ground-level root.
+	dog.position = at_position - Vector3.UP * 0.6
 	return dog
 
 

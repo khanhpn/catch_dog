@@ -8,6 +8,10 @@ const DogStatsRule = preload("res://src/dogs/dog_stats.gd")
 signal captured(stats: DogStatsRule)
 
 
+const COLLISION_LAYER := 2
+const CAPTURE_TARGET_HEIGHT := 0.6
+
+
 enum State {
 	IDLE,
 	FLEEING,
@@ -22,6 +26,12 @@ enum State {
 @export var capture_effect_duration := 0.2
 var state: State = State.IDLE
 var _rng := RandomNumberGenerator.new()
+var _is_exiting_tree := false
+
+
+func _enter_tree() -> void:
+	_is_exiting_tree = false
+	tree_exiting.connect(_mark_exiting_tree, CONNECT_ONE_SHOT)
 
 
 func _ready() -> void:
@@ -66,6 +76,19 @@ func capture() -> bool:
 	return true
 
 
+func capture_target_position() -> Vector3:
+	return _world_position() + Vector3.UP * CAPTURE_TARGET_HEIGHT
+
+
+func is_capture_target_valid() -> bool:
+	return (
+		is_inside_tree()
+		and not _is_exiting_tree
+		and not is_queued_for_deletion()
+		and state != State.CAPTURED
+	)
+
+
 func _physics_process(_delta: float) -> void:
 	if state != State.FLEEING or not is_inside_tree():
 		return
@@ -90,6 +113,10 @@ func _navigation_agent() -> NavigationAgent3D:
 
 func _world_position() -> Vector3:
 	return global_position if is_inside_tree() else position
+
+
+func _mark_exiting_tree() -> void:
+	_is_exiting_tree = true
 
 
 func _play_capture_feedback() -> void:
