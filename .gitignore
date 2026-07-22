@@ -1,0 +1,7 @@
+.godot/
+.superpowers/
+builds/
+exports/
+*.tmp
+*.log
+
