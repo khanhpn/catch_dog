@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="PlayerVehicleStats" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/vehicle/player_vehicle_stats.gd" id="1_stats"]
+
+[resource]
+script = ExtResource("1_stats")
+max_speed_mps = 18.0
+acceleration_mps2 = 12.0
+steer_radians_per_second = 2.2
+visual_lean_radians = 0.3
+fuel_capacity = 100.0
+idle_fuel_rate = 0.2
+throttle_fuel_rate = 1.0
