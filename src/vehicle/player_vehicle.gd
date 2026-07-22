@@ -37,7 +37,10 @@ func _ensure_initialized() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	var throttle := Input.get_action_strength("accelerate") - Input.get_action_strength("brake")
+	var throttle := Input.get_action_strength("accelerate")
+	var brake := Input.get_action_strength("brake")
+	if brake > 0.0:
+		throttle = -brake
 	var steer := Input.get_action_strength("steer_right") - Input.get_action_strength("steer_left")
 	simulate_controls(throttle, steer, delta)
 	if not is_on_floor():
@@ -45,6 +48,7 @@ func _physics_process(delta: float) -> void:
 	else:
 		velocity.y = 0.0
 	move_and_slide()
+	_check_stopped_without_fuel()
 
 
 func simulate_controls(throttle: float, steer: float, delta: float) -> void:
@@ -52,14 +56,17 @@ func simulate_controls(throttle: float, steer: float, delta: float) -> void:
 	var safe_delta := maxf(delta, 0.0)
 	var safe_throttle := clampf(throttle, -1.0, 1.0)
 	var safe_steer := clampf(steer, -1.0, 1.0)
+	var acceleration_input := maxf(safe_throttle, 0.0)
 	var previous_percent := fuel_percent()
-	fuel.consume(safe_delta, safe_throttle)
+	fuel.consume(safe_delta, acceleration_input)
 	var speed_limit := stats.max_speed_mps * fuel.top_speed_scale()
+	var target_speed := acceleration_input * speed_limit if fuel.amount > 0.0 else 0.0
 	forward_speed = move_toward(
 		forward_speed,
-		safe_throttle * speed_limit,
+		target_speed,
 		stats.acceleration_mps2 * safe_delta,
 	)
+	forward_speed = maxf(forward_speed, 0.0)
 	rotation.y -= safe_steer * stats.steer_radians_per_second * safe_delta * speed_ratio()
 	var movement_basis := global_basis if is_inside_tree() else basis
 	var forward := -movement_basis.z
@@ -71,7 +78,6 @@ func simulate_controls(throttle: float, steer: float, delta: float) -> void:
 	var current_percent := fuel_percent()
 	if not is_equal_approx(previous_percent, current_percent):
 		fuel_changed.emit(current_percent)
-	_check_stopped_without_fuel()
 
 
 func fuel_percent() -> float:
@@ -84,7 +90,8 @@ func fuel_percent() -> float:
 func refill_fuel(amount: float) -> void:
 	_ensure_initialized()
 	var previous_percent := fuel_percent()
-	fuel.refill(amount)
+	var raw_refill := maxf(amount, 0.0) * 0.01 * fuel.capacity
+	fuel.refill(raw_refill)
 	var current_percent := fuel_percent()
 	if not is_equal_approx(previous_percent, current_percent):
 		fuel_changed.emit(current_percent)
@@ -104,7 +111,7 @@ func is_stopped_without_fuel() -> bool:
 func speed_ratio() -> float:
 	if stats == null or is_zero_approx(stats.max_speed_mps):
 		return 0.0
-	return clampf(absf(forward_speed) / stats.max_speed_mps, 0.15, 1.0)
+	return clampf(absf(forward_speed) / stats.max_speed_mps, 0.0, 1.0)
 
 
 func _check_stopped_without_fuel() -> void:

@@ -49,6 +49,50 @@ func test_low_fuel_reduces_vehicle_top_speed() -> void:
 	low_vehicle.free()
 
 
+func test_empty_fuel_disables_propulsion() -> void:
+	var vehicle: Variant = PlayerVehicleScene.instantiate()
+	add_child(vehicle)
+	vehicle.simulate_controls(1.0, 0.0, 100.0)
+	vehicle.forward_speed = 0.0
+
+	vehicle.simulate_controls(1.0, 0.0, 1.0)
+
+	check(is_zero_approx(vehicle.fuel_percent()), "Test setup must empty the vehicle fuel")
+	check(is_zero_approx(vehicle.forward_speed), "An empty vehicle must not produce propulsion")
+	vehicle.free()
+
+
+func test_brake_decelerates_without_reversing() -> void:
+	var vehicle: Variant = PlayerVehicleScene.instantiate()
+	add_child(vehicle)
+	vehicle.simulate_controls(1.0, 0.0, 0.25)
+	var moving_speed: float = vehicle.forward_speed
+
+	vehicle.simulate_controls(-1.0, 0.0, 1.0)
+
+	check(vehicle.forward_speed < moving_speed, "Brake input must reduce forward speed")
+	check(vehicle.forward_speed >= 0.0, "Brake input must never reverse the vehicle")
+	vehicle.free()
+
+
+func test_braking_uses_less_fuel_than_accelerating() -> void:
+	var accelerating_vehicle: Variant = PlayerVehicleScene.instantiate()
+	add_child(accelerating_vehicle)
+	accelerating_vehicle.simulate_controls(1.0, 0.0, 0.25)
+	var accelerated_consumption: float = 1.0 - accelerating_vehicle.fuel_percent()
+
+	var braking_vehicle: Variant = PlayerVehicleScene.instantiate()
+	add_child(braking_vehicle)
+	braking_vehicle.simulate_controls(1.0, 0.0, 0.25)
+	braking_vehicle.refill_fuel(100.0)
+	braking_vehicle.simulate_controls(-1.0, 0.0, 0.25)
+	var braking_consumption: float = 1.0 - braking_vehicle.fuel_percent()
+
+	check(braking_consumption < accelerated_consumption, "Braking must use the idle fuel rate, not the acceleration rate")
+	accelerating_vehicle.free()
+	braking_vehicle.free()
+
+
 func test_fuel_pickup_collects_only_once() -> void:
 	var vehicle: Variant = PlayerVehicleScene.instantiate()
 	add_child(vehicle)
@@ -68,6 +112,22 @@ func test_fuel_pickup_collects_only_once() -> void:
 	vehicle.free()
 
 
+func test_pickup_restores_35_percent_with_nonstandard_capacity() -> void:
+	var vehicle: Variant = PlayerVehicleScene.instantiate()
+	vehicle.stats = vehicle.stats.duplicate()
+	vehicle.stats.fuel_capacity = 200.0
+	add_child(vehicle)
+	vehicle.simulate_controls(1.0, 0.0, 200.0)
+	var pickup: Variant = FuelPickupScene.instantiate()
+	add_child(pickup)
+
+	pickup.collect(vehicle)
+
+	check(is_equal_approx(vehicle.fuel_percent(), 0.35), "A 35-point pickup must restore 35 percent at any fuel capacity")
+	pickup.free()
+	vehicle.free()
+
+
 func test_stopped_without_fuel_emits_once_at_threshold() -> void:
 	var vehicle: Variant = PlayerVehicleScene.instantiate()
 	add_child(vehicle)
@@ -77,10 +137,79 @@ func test_stopped_without_fuel_emits_once_at_threshold() -> void:
 	vehicle.simulate_controls(1.0, 0.0, 100.0)
 	check(stopped_emissions[0] == 0, "An empty moving vehicle must not emit the stopped signal")
 	vehicle.simulate_controls(0.0, 0.0, 100.0)
+	vehicle._check_stopped_without_fuel()
 	vehicle.simulate_controls(0.0, 0.0, 1.0)
+	vehicle._check_stopped_without_fuel()
 
 	check(vehicle.is_stopped_without_fuel(), "Vehicle must report stopped after empty fuel and speed below the threshold")
 	check(stopped_emissions[0] == 1, "Stopped-without-fuel must emit once at the threshold")
+	vehicle.free()
+
+
+func test_terminal_signal_uses_post_move_collision_velocity() -> void:
+	var vehicle: Variant = PlayerVehicleScene.instantiate()
+	add_child(vehicle)
+	vehicle.fuel_percent()
+	vehicle.fuel.amount = 0.0
+	vehicle.forward_speed = 0.1
+	var stopped_emissions := [0]
+	vehicle.stopped_without_fuel.connect(func() -> void: stopped_emissions[0] += 1)
+
+	vehicle.simulate_controls(0.0, 0.0, 0.0)
+	check(stopped_emissions[0] == 0, "Control simulation must not emit before actual movement resolves")
+	vehicle.velocity = Vector3.ZERO
+	vehicle._check_stopped_without_fuel()
+
+	check(stopped_emissions[0] == 1, "Collision-induced stopping must emit from actual post-move velocity")
+	vehicle.free()
+
+
+func test_stopped_signal_latch_resets_after_refill() -> void:
+	var vehicle: Variant = PlayerVehicleScene.instantiate()
+	add_child(vehicle)
+	vehicle.fuel_percent()
+	var stopped_emissions := [0]
+	vehicle.stopped_without_fuel.connect(func() -> void: stopped_emissions[0] += 1)
+	vehicle.fuel.amount = 0.0
+	vehicle.velocity = Vector3.ZERO
+	vehicle._check_stopped_without_fuel()
+	vehicle._check_stopped_without_fuel()
+
+	vehicle.refill_fuel(10.0)
+	vehicle.simulate_controls(1.0, 0.0, 10.0)
+	vehicle.velocity = Vector3.ZERO
+	vehicle._check_stopped_without_fuel()
+
+	check(stopped_emissions[0] == 2, "A refill must re-arm one terminal signal for a later depletion")
+	vehicle.free()
+
+
+func test_standstill_cannot_yaw_or_lean() -> void:
+	var vehicle: Variant = PlayerVehicleScene.instantiate()
+	add_child(vehicle)
+
+	vehicle.simulate_controls(0.0, 1.0, 1.0)
+	var visual_pivot := vehicle.get_node("VisualPivot") as Node3D
+
+	check(is_zero_approx(vehicle.rotation.y), "A stationary vehicle must not yaw from steering")
+	check(is_zero_approx(visual_pivot.rotation.z), "A stationary vehicle must not visually lean")
+	vehicle.free()
+
+
+func test_camera_obstruction_snaps_inward_and_recovers_smoothly() -> void:
+	var vehicle: Variant = PlayerVehicleScene.instantiate()
+	add_child(vehicle)
+	var camera_rig: Variant = vehicle.get_node("CameraRig")
+	check(camera_rig.has_method("resolve_camera_distance"), "Camera rig must expose deterministic distance resolution")
+	if not camera_rig.has_method("resolve_camera_distance"):
+		vehicle.free()
+		return
+
+	var inward: float = camera_rig.resolve_camera_distance(8.0, 8.0, 3.0, 0.1)
+	var outward: float = camera_rig.resolve_camera_distance(inward, 8.0, 8.0, 0.1)
+
+	check(is_equal_approx(inward, 3.0 - camera_rig.collision_margin), "Camera obstruction must snap inward with collision margin")
+	check(outward > inward and outward < 8.0, "Camera must smooth outward recovery after an obstruction clears")
 	vehicle.free()
 
 
