@@ -1,0 +1,5 @@
+[gd_resource type="Resource" format=3]
+
+[resource]
+metadata/duration_seconds = 600.0
+metadata/score_goal = 100
