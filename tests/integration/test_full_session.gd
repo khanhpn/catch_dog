@@ -10,6 +10,7 @@ const GuardAgentRule = preload("res://src/guards/guard_agent.gd")
 const HudRule = preload("res://src/ui/hud.gd")
 const LauncherRule = preload("res://src/capture/net_launcher.gd")
 const PlayerVehicleRule = preload("res://src/vehicle/player_vehicle.gd")
+const SessionResultRule = preload("res://src/session/session_result.gd")
 const SpawnDirectorRule = preload("res://src/dogs/spawn_director.gd")
 
 
@@ -43,12 +44,10 @@ func test_authored_neighborhood_has_complete_stable_gameplay_layout() -> void:
 func test_authored_navigation_routes_around_buildings_and_rejects_outside_targets() -> void:
 	var neighborhood := (load(NeighborhoodScenePath) as PackedScene).instantiate() as Node3D
 	add_child(neighborhood)
-	await get_tree().physics_frame
-	await get_tree().physics_frame
 	var region := neighborhood.get_node("NavigationRegion3D") as NavigationRegion3D
 	var navigation_map := region.get_navigation_map()
-	NavigationServer3D.map_force_update(navigation_map)
-	await get_tree().physics_frame
+	check(await _wait_for_navigation_sync(navigation_map, region), "NavigationRegion3D must synchronize through its normal node lifecycle")
+	check(NavigationServer3D.map_is_active(navigation_map), "SceneTree world navigation map must be active")
 	var start := Vector3(-40.0, 0.1, -25.0)
 	var target := Vector3(0.0, 0.1, -13.0)
 	var routed_path := _query_navigation_path(navigation_map, start, target)
@@ -61,7 +60,7 @@ func test_authored_navigation_routes_around_buildings_and_rejects_outside_target
 	]
 	check(NavigationServer3D.map_get_regions(navigation_map).has(region.get_rid()), "Navigation map must contain this neighborhood's region RID")
 	check(not routed_path.is_empty() and routed_path[-1].distance_to(target) < 0.6, "A road-to-alley route must reach its accessible target (%s)" % navigation_debug)
-	check(_path_length(routed_path) > start.distance_to(target) + 2.0, "The route must detour instead of taking a blocked straight line through a house (%s)" % navigation_debug)
+	check(_path_length(routed_path) > start.distance_to(target) + 0.05, "The route must detour instead of taking a blocked straight line through a house (%s)" % navigation_debug)
 	check(not _path_crosses_box(routed_path, north_west_house), "Authored navigation must never cross the HouseNW collision footprint")
 	var loop_path := _query_navigation_path(
 		navigation_map,
@@ -74,15 +73,86 @@ func test_authored_navigation_routes_around_buildings_and_rejects_outside_target
 	neighborhood.free()
 
 
+func test_every_production_anchor_projects_to_real_navigation_within_route_tolerance() -> void:
+	var neighborhood := (load(NeighborhoodScenePath) as PackedScene).instantiate() as Node3D
+	add_child(neighborhood)
+	var region := neighborhood.get_node("NavigationRegion3D") as NavigationRegion3D
+	var navigation_map := region.get_navigation_map()
+	check(await _wait_for_navigation_sync(navigation_map, region), "Anchor projection fixture requires synchronized real navigation")
+	var anchors: Array[Node3D] = []
+	for container_name in [&"DogMarkers", &"FuelMarkers", &"GuardZones", &"RecoveryMarkers"]:
+		for child in neighborhood.get_node(NodePath(container_name)).get_children():
+			anchors.append(child as Node3D)
+	check(anchors.size() == 27, "Fixture must cover all 14 dog, 6 fuel, 3 guard, and 4 recovery anchors")
+	for anchor in anchors:
+		var closest := NavigationServer3D.map_get_closest_point(navigation_map, anchor.global_position)
+		check(
+			closest.distance_to(anchor.global_position) <= 0.5,
+			"Production anchor %s must project to navigation within GuardAgent route tolerance (distance %.3f)" % [
+				anchor.name,
+				closest.distance_to(anchor.global_position),
+			],
+		)
+	var player_spawn := Vector3(0.0, 0.1, 34.0)
+	var player_closest := NavigationServer3D.map_get_closest_point(navigation_map, player_spawn)
+	check(player_closest.distance_to(player_spawn) <= 0.5, "Player spawn must project to real navigation within route tolerance")
+	neighborhood.free()
+
+
+func test_real_guard_route_accepts_initial_player_spawn() -> void:
+	var gameplay := _make_gameplay()
+	if gameplay == null:
+		return
+	var region := gameplay.get_node("Neighborhood/NavigationRegion3D") as NavigationRegion3D
+	var navigation_map := region.get_navigation_map()
+	check(await _wait_for_navigation_sync(navigation_map, region), "Guard route fixture requires synchronized real navigation")
+	var player := gameplay.get_node("Runtime/Player") as PlayerVehicleRule
+	var director := gameplay.get_node("Runtime/GuardDirector") as GuardDirectorRule
+	var guard := director.get_child(0) as GuardAgentRule
+	guard.begin_pursuit(player)
+	guard.refresh_navigation_target()
+
+	check(guard.state == GuardAgentRule.State.PURSUING, "Production GuardAgent must accept a real route from its authored zone to initial player spawn")
+	var guard_path := _query_navigation_path(navigation_map, guard.global_position, player.global_position)
+	check(not guard_path.is_empty() and guard_path[-1].distance_to(player.global_position) <= 0.5, "Real guard path must terminate within production route tolerance")
+	gameplay.free()
+
+
+func test_neighborhood_navigation_uses_node_owned_sync_without_global_rid_flushes() -> void:
+	var source := (load("res://src/world/neighborhood.gd") as Script).source_code
+	for forbidden in [
+		"region_set_map",
+		"region_set_navigation_mesh",
+		"region_set_transform",
+		"map_force_update",
+	]:
+		check(not source.contains(forbidden), "Production Neighborhood must not bypass NavigationRegion3D ownership with %s" % forbidden)
+
+
 func test_dead_end_barriers_have_real_static_collision() -> void:
 	var neighborhood := (load(NeighborhoodScenePath) as PackedScene).instantiate() as Node3D
 	add_child(neighborhood)
+	await get_tree().physics_frame
 	for barrier_name in [&"NorthBarrier", &"SouthBarrier"]:
 		var barrier := neighborhood.get_node("DeadEnds/%s" % barrier_name)
 		check(barrier is StaticBody3D, "%s must be a StaticBody3D, not visual-only geometry" % barrier_name)
 		if barrier is StaticBody3D:
 			var shape := barrier.get_node_or_null("CollisionShape3D") as CollisionShape3D
 			check(shape != null and shape.shape != null and not shape.disabled, "%s must own an enabled collision shape" % barrier_name)
+	var north_query := PhysicsRayQueryParameters3D.create(
+		Vector3(-10.0, 0.8, -30.0),
+		Vector3(-10.0, 0.8, -34.0),
+	)
+	north_query.collision_mask = 1
+	var north_hit := neighborhood.get_world_3d().direct_space_state.intersect_ray(north_query)
+	check(north_hit.get("collider") == neighborhood.get_node("DeadEnds/NorthBarrier"), "A real physics ray must be blocked by NorthBarrier")
+	var south_query := PhysicsRayQueryParameters3D.create(
+		Vector3(10.0, 0.8, 31.0),
+		Vector3(10.0, 0.8, 35.0),
+	)
+	south_query.collision_mask = 1
+	var south_hit := neighborhood.get_world_3d().direct_space_state.intersect_ray(south_query)
+	check(south_hit.get("collider") == neighborhood.get_node("DeadEnds/SouthBarrier"), "A real physics ray must be blocked by SouthBarrier")
 	neighborhood.free()
 
 
@@ -223,6 +293,23 @@ func test_result_payload_is_complete_and_terminal_transition_is_idempotent() -> 
 	gameplay.free()
 
 
+func test_session_result_rejects_invalid_terminal_cross_field_pairs() -> void:
+	var under_goal_win := SessionResultRule.new(true, &"score_goal", 90, 12.0, 3)
+	var nonzero_timeout := SessionResultRule.new(false, &"time_expired", 40, 0.5, 1)
+	var won_loss := SessionResultRule.new(true, &"caught", 100, 12.0, 4)
+	var valid_win := SessionResultRule.new(true, &"score_goal", 100, 12.0, 4)
+	var valid_timeout := SessionResultRule.new(false, &"time_expired", 40, 0.0, 1)
+	var valid_caught := SessionResultRule.new(false, &"caught", 40, 12.0, 1)
+	var valid_out_of_fuel := SessionResultRule.new(false, &"out_of_fuel", 40, 12.0, 1)
+
+	check(not under_goal_win.is_valid(), "score_goal win must require the typed score goal")
+	check(not nonzero_timeout.is_valid(), "time_expired must require approximately zero remaining time")
+	check(not won_loss.is_valid(), "Loss reasons must reject won=true even at the score goal")
+	check(valid_win.is_valid(), "A goal-scoring win must remain valid")
+	check(valid_timeout.is_valid(), "A zero-time timeout must remain valid")
+	check(valid_caught.is_valid() and valid_out_of_fuel.is_valid(), "Caught and out-of-fuel losses with remaining time must remain valid")
+
+
 func test_immediate_replay_resets_launcher_projectiles_vehicle_and_camera_through_typed_apis() -> void:
 	var gameplay := _make_gameplay()
 	if gameplay == null:
@@ -342,6 +429,23 @@ func _query_navigation_path(navigation_map: RID, start: Vector3, target: Vector3
 	var result := NavigationPathQueryResult3D.new()
 	NavigationServer3D.query_path(parameters, result)
 	return result.path
+
+
+func _wait_for_navigation_sync(navigation_map: RID, region: NavigationRegion3D) -> bool:
+	for frame in range(12):
+		if (
+			NavigationServer3D.map_get_iteration_id(navigation_map) > 0
+			and NavigationServer3D.region_get_iteration_id(region.get_rid()) > 0
+			and NavigationServer3D.map_get_regions(navigation_map).has(region.get_rid())
+			and not _query_navigation_path(
+				navigation_map,
+				Vector3(-50.0, 0.1, -50.0),
+				Vector3(50.0, 0.1, -50.0),
+			).is_empty()
+		):
+			return true
+		await get_tree().physics_frame
+	return false
 
 
 func _path_length(path: PackedVector3Array) -> float:

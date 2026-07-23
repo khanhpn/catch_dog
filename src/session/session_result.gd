@@ -8,6 +8,8 @@ const VALID_REASONS: Array[StringName] = [
 	&"caught",
 	&"out_of_fuel",
 ]
+const SCORE_GOAL := 100
+const TIME_EXPIRY_TOLERANCE := 0.001
 
 
 var won: bool:
@@ -42,14 +44,23 @@ func _init(
 
 
 func is_valid() -> bool:
-	return (
+	var fields_are_valid := (
 		reason in VALID_REASONS
-		and won == (reason == &"score_goal")
 		and score >= 0
-		and score <= 100
+		and score <= SCORE_GOAL
 		and remaining_time >= 0.0
 		and captures >= 0
 	)
+	if not fields_are_valid:
+		return false
+	match reason:
+		&"score_goal":
+			return won and score == SCORE_GOAL
+		&"time_expired":
+			return not won and remaining_time <= TIME_EXPIRY_TOLERANCE
+		&"caught", &"out_of_fuel":
+			return not won
+	return false
 
 
 func to_payload() -> Dictionary:

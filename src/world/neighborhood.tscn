@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://src/world/neighborhood.gd" id="1_world"]
 [ext_resource type="Environment" path="res://src/world/environment.tres" id="2_environment"]
 [ext_resource type="Script" path="res://src/dogs/spawn_point.gd" id="3_dog_marker"]
 [ext_resource type="Script" path="res://src/world/world_marker.gd" id="4_world_marker"]
+[ext_resource type="NavigationMesh" path="res://src/world/neighborhood_navigation.tres" id="5_navigation"]
 
 [node name="Neighborhood" type="Node3D"]
 script = ExtResource("1_world")
@@ -19,6 +20,7 @@ shadow_enabled = true
 directional_shadow_max_distance = 90.0
 
 [node name="NavigationRegion3D" type="NavigationRegion3D" parent="."]
+navigation_mesh = ExtResource("5_navigation")
 
 [node name="Roads" type="Node3D" parent="."]
 
