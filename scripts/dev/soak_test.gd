@@ -43,24 +43,24 @@ func _run() -> void:
 
 	var spawn_director := SpawnDirectorRule.new()
 	var spawn_player := Node3D.new()
+	var spawn_camera := Camera3D.new()
 	var first_marker := SpawnPointRule.new()
 	var second_marker := SpawnPointRule.new()
 	spawn_player.position = Vector3.ZERO
 	first_marker.position = Vector3(30.0, 0.0, 0.0)
 	second_marker.position = Vector3(34.0, 0.0, 0.0)
 	spawn_director.player = spawn_player
+	spawn_director.camera = spawn_camera
 	spawn_director.set_population_active(false)
 	spawn_director.set_test_markers([first_marker, second_marker])
 	spawn_director.set_test_roll_source(func() -> float: return 0.5)
 	spawn_director.add_child(spawn_player)
+	spawn_director.add_child(spawn_camera)
 	spawn_director.add_child(first_marker)
 	spawn_director.add_child(second_marker)
 	root.add_child(spawn_director)
 	for cycle in SPAWN_ATTEMPTS / 2:
-		spawn_director.set_test_marker_validation(first_marker, false, false, true)
-		spawn_director.set_test_marker_validation(second_marker, false, false, true)
 		var first_dog = spawn_director.request_dog_spawn()
-		spawn_director.set_test_marker_validation(first_marker, false, true, true)
 		var second_dog = spawn_director.request_dog_spawn()
 		if first_dog == null or second_dog == null:
 			failures.append("Spawn cycle %d failed to create both validated dogs." % cycle)
