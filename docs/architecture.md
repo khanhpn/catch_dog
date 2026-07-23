@@ -1,5 +1,9 @@
 # Architecture
 
+The normative gameplay and maintenance contracts live in
+[MAINTENANCE_SPEC.md](MAINTENANCE_SPEC.md). This document explains the current
+architecture that implements those contracts.
+
 ## Overview
 
 Catch Dog is a Godot 4.6.3 project built around a scene-owned runtime. `res://src/app/main.tscn` is the configured entry point. `Main` replaces a single screen-root child to switch among the main menu, tutorial, settings, and `res://src/session/gameplay.tscn`; it loads persisted settings before gameplay begins.

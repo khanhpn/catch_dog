@@ -72,7 +72,7 @@ Dog values range from 10-point street dogs to the rarer 50-point Shiba Inu. A se
 
 ```text
 assets/        Source art and license/provenance notes
-docs/          Architecture, performance, and release documentation
+docs/          Maintenance spec, architecture, performance, and release docs
 scripts/dev/   Godot launcher and project validator
 scripts/ci/    Pinned Godot installer and deterministic packaging
 site/          Dependency-free GitHub Pages landing page
@@ -114,6 +114,7 @@ Before publishing, the release owner must complete the owner-only gates in [docs
 
 ## More information
 
+- [Maintenance specification](docs/MAINTENANCE_SPEC.md)
 - [Contributing guide](CONTRIBUTING.md)
 - [Architecture](docs/architecture.md)
 - [Performance guidance](docs/performance.md)

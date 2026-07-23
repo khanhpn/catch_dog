@@ -1,5 +1,9 @@
 # Contributing to Catch Dog
 
+Read [docs/MAINTENANCE_SPEC.md](docs/MAINTENANCE_SPEC.md) before changing public
+gameplay behavior, state transitions, signals, balance constants, navigation,
+settings, exports, or release gates.
+
 ## Prerequisites
 
 - Godot **4.6.3**. Use the same editor/runtime line as CI and the project validator.
