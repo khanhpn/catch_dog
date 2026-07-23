@@ -1,4 +1,4 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://src/guards/guard_agent.gd" id="1_guard"]
 [ext_resource type="Resource" path="res://src/guards/guard_stats.tres" id="2_stats"]
@@ -9,6 +9,10 @@ height = 1.9
 
 [sub_resource type="BoxMesh" id="BoxMesh_guard"]
 size = Vector3(1.1, 0.8, 2.0)
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape_capture"]
+radius = 0.65
+height = 2.0
 
 [node name="GuardAgent" type="CharacterBody3D"]
 collision_layer = 4
@@ -34,5 +38,5 @@ monitorable = false
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="CaptureArea"]
 position = Vector3(0, 0.95, -0.8)
-shape = SubResource("CapsuleShape_guard")
+shape = SubResource("CapsuleShape_capture")
 disabled = true

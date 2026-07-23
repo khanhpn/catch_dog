@@ -26,10 +26,18 @@ var _forward_speed := 0.0
 var _navigation_target_sink := Callable()
 var _contact_emitted := false
 var _recovery_reachability := Callable()
+var _recovering := false
+var _recovery_target := Vector3.ZERO
+var _recovery_request_pending := false
 
 
 func _ready() -> void:
 	ensure_initialized()
+	if recovery_points.is_empty():
+		for child in get_children():
+			var marker := child as Marker3D
+			if marker != null and marker.name.begins_with("RecoveryPoint"):
+				recovery_points.append(marker)
 	var capture_area := _capture_area()
 	if capture_area != null:
 		var callback := Callable(self, "_on_capture_body_entered")
@@ -77,11 +85,14 @@ func begin_pursuit(player: PlayerVehicleRule) -> void:
 	_navigation_refresh_elapsed = 0.0
 	_contact_emitted = false
 	_forward_speed = 0.0
+	_recovering = false
+	_recovery_request_pending = false
 	var exiting_callback := Callable(self, "_on_target_tree_exiting")
 	if not target.tree_exiting.is_connected(exiting_callback):
 		target.tree_exiting.connect(exiting_callback, CONNECT_ONE_SHOT)
 	_set_capture_enabled(true)
-	refresh_navigation_target()
+	# Navigation maps synchronize after the node enters the tree; validate from later 4 Hz refreshes.
+	refresh_navigation_target(false)
 	pursuit_started.emit(self)
 
 
@@ -101,7 +112,8 @@ func simulate_pursuit(delta: float) -> void:
 	_navigation_refresh_elapsed += safe_delta
 	while _navigation_refresh_elapsed + 0.000001 >= refresh_interval:
 		_navigation_refresh_elapsed -= refresh_interval
-		refresh_navigation_target()
+		if not _recovering:
+			refresh_navigation_target()
 	_update_propulsion(safe_delta)
 
 
@@ -120,10 +132,18 @@ func predicted_intercept_position() -> Vector3:
 	return player_position + lead
 
 
-func refresh_navigation_target() -> void:
+func refresh_navigation_target(validate_route: bool = true) -> void:
 	if state != State.PURSUING or not _is_player_valid(target):
 		return
-	_set_navigation_target(predicted_intercept_position())
+	var intercept := predicted_intercept_position()
+	if validate_route:
+		var route_status: Variant = _route_status(intercept)
+		if route_status is bool and not bool(route_status):
+			recover_or_abandon_navigation()
+			return
+	_recovering = false
+	_recovery_request_pending = false
+	_set_navigation_target(intercept)
 
 
 func set_test_navigation_target_sink(sink: Callable) -> void:
@@ -160,6 +180,9 @@ func handle_navigation_failure(recovery_point: Variant = null) -> void:
 	if state != State.PURSUING:
 		return
 	if recovery_point is Vector3 and (recovery_point as Vector3).is_finite():
+		_recovering = true
+		_recovery_target = recovery_point as Vector3
+		_recovery_request_pending = true
 		_set_navigation_target(recovery_point as Vector3)
 		return
 	_end_pursuit_to_idle()
@@ -192,17 +215,50 @@ func exhaust() -> void:
 func retire() -> void:
 	if state == State.RETIRED:
 		return
-	if state == State.PURSUING:
+	var was_pursuing := state == State.PURSUING
+	state = State.RETIRED
+	if was_pursuing:
 		_clear_target()
 		pursuit_ended.emit(self)
-	state = State.RETIRED
+	else:
+		_clear_target()
+	_detection_target = null
+	_recovering = false
+	_recovery_request_pending = false
+	recovery_points.clear()
 	_stop_propulsion()
 	_set_capture_enabled(false)
+	collision_layer = 0
+	collision_mask = 0
+	var body_shape := get_node_or_null("CollisionShape3D") as CollisionShape3D
+	if body_shape != null:
+		body_shape.disabled = true
+	var visual := get_node_or_null("Visual") as GeometryInstance3D
+	if visual != null:
+		visual.visible = false
+	var navigation := _navigation_agent()
+	if navigation != null:
+		navigation.avoidance_enabled = false
+		navigation.process_mode = Node.PROCESS_MODE_DISABLED
+	set_physics_process(false)
 
 
 func _update_propulsion(delta: float) -> void:
 	var navigation := _navigation_agent()
-	if navigation == null or navigation.is_navigation_finished():
+	if navigation == null:
+		_stop_propulsion()
+		return
+	if _recovery_request_pending:
+		_recovery_request_pending = false
+		_stop_propulsion()
+		return
+	if navigation.is_navigation_finished():
+		if _recovering and _world_position().distance_to(_recovery_target) <= maxf(
+			navigation.target_desired_distance,
+			0.5,
+		):
+			_recovering = false
+			refresh_navigation_target(false)
 		_stop_propulsion()
 		return
 	var direction := navigation.get_next_path_position() - _world_position()
@@ -238,6 +294,8 @@ func _end_pursuit_to_idle() -> void:
 	if state != State.PURSUING:
 		return
 	state = State.IDLE
+	_recovering = false
+	_recovery_request_pending = false
 	_clear_target()
 	_stop_propulsion()
 	_set_capture_enabled(false)
@@ -282,21 +340,38 @@ func _is_player_valid(player: PlayerVehicleRule) -> bool:
 
 
 func _is_recovery_reachable(point_position: Vector3) -> bool:
+	var status: Variant = _route_status(point_position)
+	return status is bool and bool(status)
+
+
+func _route_status(target_position: Vector3) -> Variant:
 	if _recovery_reachability.is_valid():
-		return bool(_recovery_reachability.call(point_position))
+		return bool(_recovery_reachability.call(target_position))
 	var navigation := _navigation_agent()
 	if navigation == null:
-		return false
+		return null
+	var route_tolerance := maxf(navigation.path_desired_distance, 0.5)
+	if _world_position().distance_to(target_position) <= route_tolerance:
+		return true
 	var navigation_map := navigation.get_navigation_map()
 	if not navigation_map.is_valid():
-		return false
-	var nearest_navigation_point := NavigationServer3D.map_get_closest_point(
-		navigation_map,
-		point_position,
-	)
-	return nearest_navigation_point.distance_to(point_position) <= maxf(
-		navigation.path_desired_distance,
-		0.5,
+		return null
+	if NavigationServer3D.map_get_iteration_id(navigation_map) == 0:
+		return null
+	if NavigationServer3D.map_get_regions(navigation_map).is_empty():
+		return null
+	var parameters := NavigationPathQueryParameters3D.new()
+	parameters.map = navigation_map
+	parameters.start_position = _world_position()
+	parameters.target_position = target_position
+	parameters.navigation_layers = navigation.navigation_layers
+	var result := NavigationPathQueryResult3D.new()
+	NavigationServer3D.query_path(parameters, result)
+	var route := result.path
+	return (
+		not route.is_empty()
+		and route[0].distance_to(_world_position()) <= route_tolerance
+		and route[route.size() - 1].distance_to(target_position) <= route_tolerance
 	)
 
 

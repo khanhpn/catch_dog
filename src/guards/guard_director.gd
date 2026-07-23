@@ -15,6 +15,7 @@ signal threat_directions_changed(directions: Array[Vector3])
 
 const MAX_NON_RETIRED_GUARDS := 3
 const REPLACEMENT_DELAY_SECONDS := 20.0
+const ZONE_OCCUPANCY_RADIUS := 2.0
 
 
 @export var player: PlayerVehicleRule
@@ -22,10 +23,8 @@ const REPLACEMENT_DELAY_SECONDS := 20.0
 @export var camera: Camera3D
 var _guards: Array[GuardAgentRule] = []
 var _guard_zones: Dictionary = {}
-var _replacement_waiting: Array[GuardAgentRule] = []
 var _replacement_eligible: Array[GuardAgentRule] = []
-var _replacement_timer_pending := false
-var _replacement_timer: SceneTreeTimer
+var _replacement_records: Dictionary = {}
 var _bound_launcher: NetLauncherRule
 var _replacement_scheduler := Callable()
 var _visibility_check := Callable()
@@ -47,7 +46,7 @@ func _process(_delta: float) -> void:
 
 
 func _exit_tree() -> void:
-	_release_replacement_timer()
+	_release_all_replacement_timers()
 
 
 func bind_launcher(net_launcher: NetLauncherRule) -> void:
@@ -64,10 +63,8 @@ func set_test_guards(guards: Array[GuardAgentRule]) -> void:
 		_disconnect_guard(guard)
 	_guards.clear()
 	_guard_zones.clear()
-	_replacement_waiting.clear()
 	_replacement_eligible.clear()
-	_replacement_timer_pending = false
-	_release_replacement_timer()
+	_release_all_replacement_timers()
 	for guard in guards:
 		register_guard(guard)
 
@@ -82,6 +79,8 @@ func register_guard(guard: GuardAgentRule) -> bool:
 		return false
 	_guards.append(guard)
 	guard.set_detection_target(player)
+	if guard.recovery_points.is_empty():
+		guard.recovery_points = recovery_markers()
 	var started_callback := Callable(self, "_on_guard_pursuit_started")
 	var ended_callback := Callable(self, "_on_guard_pursuit_ended")
 	var caught_callback := Callable(self, "_on_guard_player_caught").bind(guard)
@@ -130,6 +129,18 @@ func zone_markers() -> Array[Marker3D]:
 	return zones
 
 
+func recovery_markers() -> Array[Marker3D]:
+	var markers: Array[Marker3D] = []
+	var root := get_node_or_null("RecoveryPoints")
+	if root == null:
+		return markers
+	for child in root.get_children():
+		var marker := child as Marker3D
+		if marker != null:
+			markers.append(marker)
+	return markers
+
+
 func assign_guard_zone(guard: GuardAgentRule, zone: Marker3D) -> void:
 	if is_instance_valid(guard) and is_instance_valid(zone):
 		_guard_zones[guard.get_instance_id()] = zone
@@ -157,20 +168,23 @@ func process_replacements() -> void:
 		var zone := _replacement_zone_for(exhausted_guard)
 		if zone == null:
 			continue
-		exhausted_guard.retire()
 		var replacement := _create_guard()
 		if replacement == null:
-			_replacement_eligible.erase(exhausted_guard)
 			continue
+		_disconnect_guard(exhausted_guard)
+		_guards.erase(exhausted_guard)
+		_guard_zones.erase(exhausted_guard.get_instance_id())
+		_replacement_eligible.erase(exhausted_guard)
+		_release_replacement_record(exhausted_guard)
+		exhausted_guard.retire()
+		exhausted_guard.queue_free()
 		if not replacement.is_inside_tree():
 			add_child(replacement)
 		replacement.global_position = zone.global_position
 		if not register_guard(replacement):
 			replacement.queue_free()
-			_replacement_eligible.erase(exhausted_guard)
 			continue
 		assign_guard_zone(replacement, zone)
-		_replacement_eligible.erase(exhausted_guard)
 	_emit_threat_directions()
 
 
@@ -200,45 +214,68 @@ func _on_guard_player_caught(guard: GuardAgentRule) -> void:
 
 func _on_guard_tree_exiting(guard: GuardAgentRule) -> void:
 	_guards.erase(guard)
-	_replacement_waiting.erase(guard)
 	_replacement_eligible.erase(guard)
+	_release_replacement_record(guard)
 	_guard_zones.erase(guard.get_instance_id())
 	_emit_threat_directions()
 
 
 func _schedule_replacement(guard: GuardAgentRule) -> void:
-	if _replacement_waiting.has(guard) or _replacement_eligible.has(guard):
+	var guard_id := guard.get_instance_id()
+	if _replacement_records.has(guard_id) or _replacement_eligible.has(guard):
 		return
-	_replacement_waiting.append(guard)
-	if _replacement_timer_pending:
-		return
-	_replacement_timer_pending = true
-	var timeout_callback := Callable(self, "_on_replacement_delay_elapsed")
+	var timeout_callback := Callable(self, "_on_replacement_delay_elapsed").bind(guard)
+	_replacement_records[guard_id] = {
+		"guard": guard,
+		"timer": null,
+	}
 	if _replacement_scheduler.is_valid():
 		_replacement_scheduler.call(REPLACEMENT_DELAY_SECONDS, timeout_callback)
 		return
 	if not is_inside_tree():
 		return
-	_replacement_timer = get_tree().create_timer(REPLACEMENT_DELAY_SECONDS)
-	_replacement_timer.timeout.connect(timeout_callback, CONNECT_ONE_SHOT)
+	var timer := get_tree().create_timer(REPLACEMENT_DELAY_SECONDS)
+	_replacement_records[guard_id] = {
+		"guard": guard,
+		"timer": timer,
+	}
+	timer.timeout.connect(timeout_callback, CONNECT_ONE_SHOT)
 
 
-func _on_replacement_delay_elapsed() -> void:
-	_replacement_timer_pending = false
-	_release_replacement_timer()
-	for guard in _replacement_waiting:
-		if is_instance_valid(guard) and not _replacement_eligible.has(guard):
-			_replacement_eligible.append(guard)
-	_replacement_waiting.clear()
+func _on_replacement_delay_elapsed(guard: GuardAgentRule) -> void:
+	if not is_instance_valid(guard):
+		return
+	var guard_id := guard.get_instance_id()
+	if not _replacement_records.has(guard_id):
+		return
+	_release_replacement_record(guard)
+	if guard.state == GuardAgentRule.State.EXHAUSTED and not _replacement_eligible.has(guard):
+		_replacement_eligible.append(guard)
 	process_replacements()
 
 
 func _replacement_zone_for(exhausted_guard: GuardAgentRule) -> Marker3D:
 	var previous_zone := _guard_zones.get(exhausted_guard.get_instance_id()) as Marker3D
 	for zone in zone_markers():
-		if zone != previous_zone and not _is_in_view(zone):
+		if (
+			zone != previous_zone
+			and not _is_in_view(zone)
+			and not _is_zone_occupied(zone, exhausted_guard)
+		):
 			return zone
 	return null
+
+
+func _is_zone_occupied(zone: Marker3D, exhausted_guard: GuardAgentRule) -> bool:
+	for guard in _guards:
+		if (
+			guard != exhausted_guard
+			and is_instance_valid(guard)
+			and guard.state != GuardAgentRule.State.RETIRED
+			and guard.global_position.distance_to(zone.global_position) <= ZONE_OCCUPANCY_RADIUS
+		):
+			return true
+	return false
 
 
 func _create_guard() -> GuardAgentRule:
@@ -290,8 +327,24 @@ func _disconnect_guard(guard: GuardAgentRule) -> void:
 		guard.tree_exiting.disconnect(exiting_callback)
 
 
-func _release_replacement_timer() -> void:
-	var callback := Callable(self, "_on_replacement_delay_elapsed")
-	if is_instance_valid(_replacement_timer) and _replacement_timer.timeout.is_connected(callback):
-		_replacement_timer.timeout.disconnect(callback)
-	_replacement_timer = null
+func _release_replacement_record(guard: GuardAgentRule) -> void:
+	if not is_instance_valid(guard):
+		return
+	var guard_id := guard.get_instance_id()
+	var record := _replacement_records.get(guard_id, {}) as Dictionary
+	var timer := record.get("timer") as SceneTreeTimer
+	var callback := Callable(self, "_on_replacement_delay_elapsed").bind(guard)
+	if is_instance_valid(timer) and timer.timeout.is_connected(callback):
+		timer.timeout.disconnect(callback)
+	_replacement_records.erase(guard_id)
+
+
+func _release_all_replacement_timers() -> void:
+	for record: Dictionary in _replacement_records.values():
+		var guard := record.get("guard") as GuardAgentRule
+		if is_instance_valid(guard):
+			var timer := record.get("timer") as SceneTreeTimer
+			var callback := Callable(self, "_on_replacement_delay_elapsed").bind(guard)
+			if is_instance_valid(timer) and timer.timeout.is_connected(callback):
+				timer.timeout.disconnect(callback)
+	_replacement_records.clear()

@@ -15,9 +15,9 @@ signal capture_confirmed(stats: DogStatsRule)
 
 
 const COOLDOWN_SECONDS := 0.8
+const DETECTION_RADIUS_METERS := 45.0
 
 
-@export var detection_radius := 12.0
 @export var projectile_scene: PackedScene = NetProjectileScene
 @export var projectile_parent: Node
 @export var source_body: CollisionObject3D
@@ -71,7 +71,7 @@ func try_throw() -> bool:
 	projectile.capture_confirmed.connect(_on_projectile_capture_confirmed)
 	projectile.launch(origin, target_position, target.velocity, _resolved_source_body())
 	_cooldown_elapsed = 0.0
-	net_thrown.emit(origin, detection_radius)
+	net_thrown.emit(origin, DETECTION_RADIUS_METERS)
 	return true
 
 

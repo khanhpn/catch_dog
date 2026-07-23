@@ -13,3 +13,14 @@ position = Vector3(50, 0, 25)
 
 [node name="GuardZoneWest" type="Marker3D" parent="."]
 position = Vector3(-50, 0, 25)
+
+[node name="RecoveryPoints" type="Node3D" parent="."]
+
+[node name="RecoveryPointNorth" type="Marker3D" parent="RecoveryPoints"]
+position = Vector3(0, 0, -30)
+
+[node name="RecoveryPointEast" type="Marker3D" parent="RecoveryPoints"]
+position = Vector3(30, 0, 15)
+
+[node name="RecoveryPointWest" type="Marker3D" parent="RecoveryPoints"]
+position = Vector3(-30, 0, 15)
