@@ -14,9 +14,12 @@ test -s "$HTML" || fail "index.html is missing or empty"
 test -s "$CSS" || fail "styles.css is missing or empty"
 test -s "$ASSET" || fail "local key art is missing or empty"
 
-for text in '<main id="main-content"' '<section class="hero"' 'id="game-loop"' 'id="dog-tiers"' 'id="controls"' 'id="platform-status"' 'Downloads are not published yet.' 'Skip to content'; do
+for text in '<main id="main-content"' '<section class="hero"' 'id="game-loop"' 'id="dog-tiers"' 'id="controls"' 'id="platform-status"' 'Download for Windows' 'Download for macOS' 'releases/latest/download/catch-dog-windows-x86_64.zip' 'releases/latest/download/catch-dog-macos-universal.zip' 'Skip to content'; do
   require_text "$text" "$HTML" || true
 done
+if grep -Fq 'Downloads are not published yet.' "$HTML"; then
+  fail "published builds must not be described as unavailable"
+fi
 require_text 'prefers-reduced-motion' "$CSS"
 require_text 'src="assets/catch-dog-key-art.png"' "$HTML"
 require_text 'href="styles.css"' "$HTML"
