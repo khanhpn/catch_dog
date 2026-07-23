@@ -1,0 +1,10 @@
+[gd_scene load_steps=2 format=3]
+[ext_resource type="Script" path="res://src/audio/audio_director.gd" id="1_audio"]
+[node name="AudioDirector" type="Node"]
+script = ExtResource("1_audio")
+[node name="Engine" type="AudioStreamPlayer" parent="."]
+bus = &"Effects"
+[node name="Wind" type="AudioStreamPlayer" parent="."]
+bus = &"Effects"
+[node name="Chase" type="AudioStreamPlayer" parent="."]
+bus = &"Music"

@@ -1,0 +1,117 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/app/settings_menu.gd" id="1_settings"]
+
+[sub_resource type="StyleBoxFlat" id="Style_panel"]
+bg_color = Color(0.018, 0.034, 0.06, 0.98)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.18, 0.7, 0.95, 0.75)
+corner_radius_top_left = 18
+corner_radius_top_right = 18
+corner_radius_bottom_right = 18
+corner_radius_bottom_left = 18
+
+[node name="SettingsMenu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_settings")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.025, 0.055, 0.095, 1)
+
+[node name="Panel" type="PanelContainer" parent="."]
+layout_mode = 0
+offset_left = 300.0
+offset_top = 34.0
+offset_right = 980.0
+offset_bottom = 686.0
+theme_override_styles/panel = SubResource("Style_panel")
+
+[node name="Margin" type="MarginContainer" parent="Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 42
+theme_override_constants/margin_top = 28
+theme_override_constants/margin_right = 42
+theme_override_constants/margin_bottom = 28
+
+[node name="Fields" type="VBoxContainer" parent="Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="Panel/Margin/Fields"]
+layout_mode = 2
+text = "CÀI ĐẶT"
+theme_override_colors/font_color = Color(1, 0.85, 0.42, 1)
+theme_override_font_sizes/font_size = 36
+
+[node name="MasterLabel" type="Label" parent="Panel/Margin/Fields"]
+layout_mode = 2
+text = "Âm lượng tổng"
+[node name="Master" type="HSlider" parent="Panel/Margin/Fields"]
+layout_mode = 2
+max_value = 100.0
+[node name="MusicLabel" type="Label" parent="Panel/Margin/Fields"]
+layout_mode = 2
+text = "Nhạc"
+[node name="Music" type="HSlider" parent="Panel/Margin/Fields"]
+layout_mode = 2
+max_value = 100.0
+[node name="EffectsLabel" type="Label" parent="Panel/Margin/Fields"]
+layout_mode = 2
+text = "Hiệu ứng"
+[node name="Effects" type="HSlider" parent="Panel/Margin/Fields"]
+layout_mode = 2
+max_value = 100.0
+[node name="Fullscreen" type="CheckButton" parent="Panel/Margin/Fields"]
+layout_mode = 2
+text = "Toàn màn hình"
+[node name="Resolution" type="OptionButton" parent="Panel/Margin/Fields"]
+layout_mode = 2
+item_count = 3
+popup/item_0/text = "1280 × 720"
+popup/item_0/id = 0
+popup/item_1/text = "1600 × 900"
+popup/item_1/id = 1
+popup/item_2/text = "1920 × 1080"
+popup/item_2/id = 2
+[node name="Preset" type="OptionButton" parent="Panel/Margin/Fields"]
+layout_mode = 2
+item_count = 3
+popup/item_0/text = "Low · AMD thân thiện"
+popup/item_0/id = 0
+popup/item_1/text = "Medium"
+popup/item_1/id = 1
+popup/item_2/text = "High"
+popup/item_2/id = 2
+[node name="CameraShakeLabel" type="Label" parent="Panel/Margin/Fields"]
+layout_mode = 2
+text = "Rung camera"
+[node name="CameraShake" type="HSlider" parent="Panel/Margin/Fields"]
+layout_mode = 2
+max_value = 100.0
+[node name="ReducedMotion" type="CheckButton" parent="Panel/Margin/Fields"]
+layout_mode = 2
+text = "Giảm chuyển động"
+[node name="Save" type="Button" parent="Panel/Margin/Fields"]
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+text = "LƯU & QUAY LẠI"
+[node name="Back" type="Button" parent="Panel/Margin/Fields"]
+layout_mode = 2
+text = "HỦY"
+
+[connection signal="pressed" from="Panel/Margin/Fields/Save" to="." method="_on_save_pressed"]
+[connection signal="pressed" from="Panel/Margin/Fields/Back" to="." method="_on_back_pressed"]

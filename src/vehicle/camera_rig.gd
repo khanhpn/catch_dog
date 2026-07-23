@@ -16,6 +16,7 @@ const PlayerVehicleRule = preload("res://src/vehicle/player_vehicle.gd")
 
 var _target: PlayerVehicleRule
 var _smoothed_follow_transform := Transform3D.IDENTITY
+var _base_turn_roll_scale := turn_roll_scale
 
 
 @onready var _camera := $Camera3D as Camera3D
@@ -110,6 +111,10 @@ func reset_runtime_state() -> void:
 
 func follow_anchor_position() -> Vector3:
 	return _smoothed_follow_transform.origin
+
+
+func apply_motion_settings(shake_strength: float, reduced_motion: bool) -> void:
+	turn_roll_scale = 0.0 if reduced_motion else _base_turn_roll_scale * clampf(shake_strength, 0.0, 1.0)
 
 
 func _obstruction_distance(focus: Vector3, desired: Vector3) -> float:

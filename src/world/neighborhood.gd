@@ -119,6 +119,89 @@ func _build_graybox_geometry() -> void:
 	_add_box_visual($DeadEnds, "SouthSpur", Vector3(10.0, 0.04, 25.0), Vector3(7.0, 0.09, 16.0), alley_color)
 	_add_static_box($DeadEnds, "NorthBarrier", Vector3(-10.0, 0.8, -32.0), Vector3(8.0, 1.6, 0.6), Color("f0b24b"))
 	_add_static_box($DeadEnds, "SouthBarrier", Vector3(10.0, 0.8, 33.0), Vector3(8.0, 1.6, 0.6), Color("f0b24b"))
+	_build_street_dressing()
+
+
+func _build_street_dressing() -> void:
+	for z in [-48.5, -35.5, 35.5, 48.5]:
+		_add_box_visual($VisualDressing, "Sidewalk_%s" % z, Vector3(0.0, 0.12, z), Vector3(104.0, 0.22, 1.4), Color("c2b8a4"))
+	for x in [-48.5, -33.5, 33.5, 48.5]:
+		_add_box_visual($VisualDressing, "Curb_%s" % x, Vector3(x, 0.16, 0.0), Vector3(1.0, 0.28, 74.0), Color("d6cbb5"))
+	for position in [
+		Vector3(-52, 0, -48), Vector3(-18, 0, -49), Vector3(20, 0, -49),
+		Vector3(52, 0, -18), Vector3(52, 0, 20), Vector3(18, 0, 50),
+		Vector3(-20, 0, 50), Vector3(-52, 0, 18),
+	]:
+		_add_tree($VisualDressing, position)
+	for position in [
+		Vector3(-50, 0, -30), Vector3(-50, 0, 30),
+		Vector3(50, 0, -30), Vector3(50, 0, 30),
+	]:
+		_add_street_lamp($VisualDressing, position)
+	for data in [
+		[Vector3(-33, 1.3, -18), Color("e55b48")],
+		[Vector3(33, 1.3, 19), Color("2a8fc0")],
+		[Vector3(-15, 1.3, 33), Color("e0a72f")],
+	]:
+		_add_shop_sign($VisualDressing, data[0], data[1])
+
+
+func _add_tree(parent: Node, at: Vector3) -> void:
+	var root := Node3D.new()
+	root.position = at
+	root.name = "StreetTree"
+	parent.add_child(root)
+	var trunk := MeshInstance3D.new()
+	var trunk_mesh := CylinderMesh.new()
+	trunk_mesh.top_radius = 0.18
+	trunk_mesh.bottom_radius = 0.28
+	trunk_mesh.height = 3.2
+	trunk_mesh.radial_segments = 8
+	trunk_mesh.material = _material(Color("6b4930"))
+	trunk.mesh = trunk_mesh
+	trunk.position.y = 1.6
+	root.add_child(trunk)
+	for offset in [Vector3(0, 3.4, 0), Vector3(0.65, 3.1, 0.15), Vector3(-0.55, 3.0, -0.2)]:
+		var crown := MeshInstance3D.new()
+		var crown_mesh := SphereMesh.new()
+		crown_mesh.radius = 1.15
+		crown_mesh.height = 1.8
+		crown_mesh.radial_segments = 10
+		crown_mesh.rings = 6
+		crown_mesh.material = _material(Color("3d7442"))
+		crown.mesh = crown_mesh
+		crown.position = offset
+		root.add_child(crown)
+
+
+func _add_street_lamp(parent: Node, at: Vector3) -> void:
+	var root := Node3D.new()
+	root.position = at
+	root.name = "StreetLamp"
+	parent.add_child(root)
+	_add_box_visual(root, "Pole", Vector3(0, 2.8, 0), Vector3(0.14, 5.6, 0.14), Color("3b4650"))
+	_add_box_visual(root, "Arm", Vector3(0.45, 5.3, 0), Vector3(1.0, 0.12, 0.12), Color("3b4650"))
+	var lamp := OmniLight3D.new()
+	lamp.position = Vector3(0.85, 5.05, 0)
+	lamp.light_color = Color("ffd68a")
+	lamp.light_energy = 0.45
+	lamp.omni_range = 7.0
+	lamp.shadow_enabled = false
+	root.add_child(lamp)
+
+
+func _add_shop_sign(parent: Node, at: Vector3, color: Color) -> void:
+	var sign := MeshInstance3D.new()
+	sign.position = at
+	sign.name = "NeighborhoodSign"
+	var mesh := BoxMesh.new()
+	mesh.size = Vector3(3.6, 1.0, 0.18)
+	var material := _material(color)
+	material.emission_enabled = true
+	material.emission = color * 0.35
+	mesh.material = material
+	sign.mesh = mesh
+	parent.add_child(sign)
 
 
 func _add_box_visual(parent: Node, node_name: String, at: Vector3, size: Vector3, color: Color) -> void:

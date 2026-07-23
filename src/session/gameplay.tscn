@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://src/session/gameplay.gd" id="1_gameplay"]
 [ext_resource type="PackedScene" path="res://src/world/neighborhood.tscn" id="2_neighborhood"]
@@ -8,6 +8,8 @@
 [ext_resource type="Script" path="res://src/guards/guard_director.gd" id="6_guards"]
 [ext_resource type="PackedScene" path="res://src/ui/hud.tscn" id="7_hud"]
 [ext_resource type="PackedScene" path="res://src/ui/result_screen.tscn" id="8_result"]
+[ext_resource type="PackedScene" path="res://src/ui/pause_menu.tscn" id="9_pause"]
+[ext_resource type="PackedScene" path="res://src/audio/audio_director.tscn" id="10_audio"]
 
 [node name="Gameplay" type="Node3D"]
 script = ExtResource("1_gameplay")
@@ -39,6 +41,10 @@ camera = NodePath("../Player/CameraRig/Camera3D")
 
 [node name="Projectiles" type="Node3D" parent="Runtime"]
 
+[node name="AudioDirector" parent="." instance=ExtResource("10_audio")]
+
 [node name="HUD" parent="." instance=ExtResource("7_hud")]
 
 [node name="ResultScreen" parent="." instance=ExtResource("8_result")]
+
+[node name="PauseMenu" parent="." instance=ExtResource("9_pause")]

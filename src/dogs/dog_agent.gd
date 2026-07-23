@@ -36,6 +36,7 @@ func _enter_tree() -> void:
 
 func _ready() -> void:
 	_rng.randomize()
+	_apply_visual_identity()
 
 
 func begin_flee(threat_position: Vector3) -> void:
@@ -136,3 +137,40 @@ func _play_capture_feedback() -> void:
 	var tween := create_tween()
 	tween.tween_property(self, "scale", Vector3.ZERO, capture_effect_duration)
 	tween.tween_callback(queue_free)
+
+
+func _apply_visual_identity() -> void:
+	var body := get_node_or_null("Visual") as MeshInstance3D
+	if body == null:
+		return
+	var body_color := Color("9b7653")
+	var accent_color := Color("e8dfcf")
+	var body_scale := Vector3.ONE
+	match stats.id:
+		&"corgi":
+			body_color = Color("c87832")
+			accent_color = Color("fff1d5")
+			body_scale = Vector3(1.0, 0.72, 1.15)
+		&"golden_retriever":
+			body_color = Color("d8a044")
+			accent_color = Color("f4d58c")
+			body_scale = Vector3(1.08, 1.05, 1.25)
+		&"shiba_inu":
+			body_color = Color("b95527")
+			accent_color = Color("f6dfb9")
+			body_scale = Vector3(0.92, 0.9, 1.0)
+	var body_material := StandardMaterial3D.new()
+	body_material.albedo_color = body_color
+	body_material.roughness = 0.9
+	var accent_material := StandardMaterial3D.new()
+	accent_material.albedo_color = accent_color
+	accent_material.roughness = 0.92
+	body.material_override = body_material
+	body.scale = body_scale
+	for path in ["Head", "Tail", "EarLeft", "EarRight"]:
+		var part := get_node_or_null(path) as MeshInstance3D
+		if part != null:
+			part.material_override = body_material
+	var snout := get_node_or_null("Snout") as MeshInstance3D
+	if snout != null:
+		snout.material_override = accent_material

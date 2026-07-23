@@ -36,6 +36,8 @@ navigation_mesh = ExtResource("5_navigation")
 
 [node name="StaticCollision" type="Node3D" parent="."]
 
+[node name="VisualDressing" type="Node3D" parent="."]
+
 [node name="DogMarkers" type="Node3D" parent="."]
 
 [node name="Dog01" type="Marker3D" parent="DogMarkers"]

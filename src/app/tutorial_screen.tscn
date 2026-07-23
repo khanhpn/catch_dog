@@ -1,0 +1,79 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/app/tutorial_screen.gd" id="1_tutorial"]
+[sub_resource type="StyleBoxFlat" id="Style_card"]
+bg_color = Color(0.025, 0.045, 0.075, 0.98)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.25, 0.75, 0.95, 0.8)
+corner_radius_top_left = 18
+corner_radius_top_right = 18
+corner_radius_bottom_right = 18
+corner_radius_bottom_left = 18
+
+[node name="TutorialScreen" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_tutorial")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.02, 0.07, 0.11, 1)
+
+[node name="Card" type="PanelContainer" parent="."]
+layout_mode = 0
+offset_left = 270.0
+offset_top = 80.0
+offset_right = 1010.0
+offset_bottom = 640.0
+theme_override_styles/panel = SubResource("Style_card")
+
+[node name="Content" type="VBoxContainer" parent="Card"]
+layout_mode = 2
+theme_override_constants/separation = 20
+alignment = 1
+
+[node name="Title" type="Label" parent="Card/Content"]
+layout_mode = 2
+text = "CÁCH CHƠI"
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(1, 0.84, 0.38, 1)
+theme_override_font_sizes/font_size = 38
+[node name="Move" type="Label" parent="Card/Content"]
+layout_mode = 2
+text = "←  →   Đánh lái xe"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 24
+[node name="Speed" type="Label" parent="Card/Content"]
+layout_mode = 2
+text = "↑ Tăng tốc · tốn xăng nhanh     ↓ Giảm tốc / phanh"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 22
+[node name="Net" type="Label" parent="Card/Content"]
+layout_mode = 2
+text = "SPACE   Quăng lưới khi mục tiêu đã LOCK"
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.35, 0.82, 1, 1)
+theme_override_font_sizes/font_size = 22
+[node name="Goal" type="Label" parent="Card/Content"]
+layout_mode = 2
+text = "Đạt 100 điểm. Chó càng hiếm càng nhiều điểm.\nNhặt bình xăng, né bảo vệ và đừng để xe dừng khi hết xăng."
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 20
+[node name="Back" type="Button" parent="Card/Content"]
+custom_minimum_size = Vector2(420, 56)
+layout_mode = 2
+text = "ĐÃ HIỂU"
+
+[connection signal="pressed" from="Card/Content/Back" to="." method="_on_back_pressed"]

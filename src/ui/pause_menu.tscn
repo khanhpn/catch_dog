@@ -1,0 +1,58 @@
+[gd_scene load_steps=3 format=3]
+[ext_resource type="Script" path="res://src/ui/pause_menu.gd" id="1_pause"]
+[sub_resource type="StyleBoxFlat" id="Style_card"]
+bg_color = Color(0.02, 0.04, 0.07, 0.98)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.2, 0.72, 0.95, 0.9)
+
+[node name="PauseMenu" type="CanvasLayer"]
+visible = false
+layer = 20
+process_mode = 3
+script = ExtResource("1_pause")
+[node name="Overlay" type="ColorRect" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.72)
+[node name="Card" type="PanelContainer" parent="Overlay"]
+layout_mode = 0
+offset_left = 430.0
+offset_top = 150.0
+offset_right = 850.0
+offset_bottom = 570.0
+theme_override_styles/panel = SubResource("Style_card")
+[node name="Actions" type="VBoxContainer" parent="Overlay/Card"]
+layout_mode = 2
+theme_override_constants/separation = 18
+alignment = 1
+[node name="Title" type="Label" parent="Overlay/Card/Actions"]
+layout_mode = 2
+text = "TẠM DỪNG"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 38
+[node name="Resume" type="Button" parent="Overlay/Card/Actions"]
+custom_minimum_size = Vector2(340, 56)
+layout_mode = 2
+text = "TIẾP TỤC"
+[node name="Restart" type="Button" parent="Overlay/Card/Actions"]
+custom_minimum_size = Vector2(340, 52)
+layout_mode = 2
+text = "CHƠI LẠI"
+[node name="MainMenu" type="Button" parent="Overlay/Card/Actions"]
+custom_minimum_size = Vector2(340, 52)
+layout_mode = 2
+text = "VỀ MENU CHÍNH"
+[connection signal="pressed" from="Overlay/Card/Actions/Resume" to="." method="_on_resume_pressed"]
+[connection signal="pressed" from="Overlay/Card/Actions/Restart" to="." method="_on_restart_pressed"]
+[connection signal="pressed" from="Overlay/Card/Actions/MainMenu" to="." method="_on_main_menu_pressed"]

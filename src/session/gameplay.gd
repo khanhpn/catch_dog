@@ -2,6 +2,9 @@ class_name Gameplay
 extends Node3D
 
 
+signal main_menu_requested
+
+
 const DogAgentRule = preload("res://src/dogs/dog_agent.gd")
 const DogStatsRule = preload("res://src/dogs/dog_stats.gd")
 const GameSessionRule = preload("res://src/session/game_session.gd")
@@ -17,6 +20,8 @@ const SessionRulesRule = preload("res://src/session/session_rules.gd")
 const SpawnDirectorRule = preload("res://src/dogs/spawn_director.gd")
 const FuelPickupRule = preload("res://src/vehicle/fuel_pickup.gd")
 const CameraRigRule = preload("res://src/vehicle/camera_rig.gd")
+const PauseMenuRule = preload("res://src/ui/pause_menu.gd")
+const AudioDirectorRule = preload("res://src/audio/audio_director.gd")
 const FuelPickupScene = preload("res://src/vehicle/fuel_pickup.tscn")
 const PlayerVehicleRule = preload("res://src/vehicle/player_vehicle.gd")
 const SESSION_DURATION_SECONDS := 180.0
@@ -42,6 +47,8 @@ var _locked_dog: DogAgentRule
 @onready var _hud := $HUD as HudRule
 @onready var _result_screen := $ResultScreen as ResultScreenRule
 @onready var _neighborhood := $Neighborhood as NeighborhoodRule
+@onready var _pause_menu := $PauseMenu as PauseMenuRule
+@onready var _audio_director := $AudioDirector as AudioDirectorRule
 
 
 func _ready() -> void:
@@ -49,6 +56,15 @@ func _ready() -> void:
 	_spawn_fuel_pickups()
 	_spawn_authored_guards()
 	_start_new_session()
+	_connect_once(_pause_menu.pause_requested, func() -> void: set_paused(true))
+	_connect_once(_pause_menu.resume_requested, func() -> void: set_paused(false))
+	_connect_once(_pause_menu.restart_requested, _restart_from_pause)
+	_connect_once(_pause_menu.main_menu_requested, _return_to_main_menu)
+
+
+func _exit_tree() -> void:
+	if get_tree() != null:
+		get_tree().paused = false
 
 
 func _physics_process(delta: float) -> void:
@@ -104,6 +120,33 @@ func reset_session() -> void:
 	_start_new_session()
 
 
+func set_paused(paused: bool) -> void:
+	if get_tree().paused == paused:
+		return
+	get_tree().paused = paused
+	if paused:
+		_pause_menu.show_menu()
+	else:
+		_pause_menu.hide_menu()
+
+
+func apply_motion_settings(camera_shake: float, reduced_motion: bool) -> void:
+	(_player.get_node("CameraRig") as CameraRigRule).apply_motion_settings(
+		camera_shake,
+		reduced_motion,
+	)
+
+
+func _restart_from_pause() -> void:
+	set_paused(false)
+	reset_session()
+
+
+func _return_to_main_menu() -> void:
+	set_paused(false)
+	main_menu_requested.emit()
+
+
 func _wire_owned_modules() -> void:
 	_dog_director.player = _player
 	_dog_director.camera = _player.get_node("CameraRig/Camera3D") as Camera3D
@@ -113,6 +156,8 @@ func _wire_owned_modules() -> void:
 	_guard_director.launcher = _launcher
 	_guard_director.camera = _player.get_node("CameraRig/Camera3D") as Camera3D
 	_guard_director.bind_launcher(_launcher)
+	_audio_director.player = _player
+	_audio_director.guard_director = _guard_director
 	_connect_once(_launcher.capture_confirmed, _on_capture_confirmed)
 	_connect_once(_launcher.target_changed, _on_target_changed)
 	_connect_once(_player.fuel_changed, _on_player_fuel_changed)

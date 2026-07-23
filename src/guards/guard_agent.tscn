@@ -1,4 +1,4 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://src/guards/guard_agent.gd" id="1_guard"]
 [ext_resource type="Resource" path="res://src/guards/guard_stats.tres" id="2_stats"]
@@ -14,6 +14,27 @@ size = Vector3(1.1, 0.8, 2.0)
 radius = 0.65
 height = 2.0
 
+[sub_resource type="StandardMaterial3D" id="Material_guard"]
+albedo_color = Color(0.04, 0.12, 0.3, 1)
+metallic = 0.38
+roughness = 0.34
+[sub_resource type="StandardMaterial3D" id="Material_guard_light"]
+albedo_color = Color(0.2, 0.75, 1, 1)
+emission_enabled = true
+emission = Color(0.1, 0.55, 1, 1)
+emission_energy_multiplier = 2.2
+[sub_resource type="BoxMesh" id="BoxMesh_guard_light"]
+material = SubResource("Material_guard_light")
+size = Vector3(0.72, 0.16, 0.12)
+[sub_resource type="CylinderMesh" id="CylinderMesh_guard_wheel"]
+top_radius = 0.34
+bottom_radius = 0.34
+height = 0.18
+radial_segments = 14
+[sub_resource type="StandardMaterial3D" id="Material_guard_tire"]
+albedo_color = Color(0.015, 0.018, 0.022, 1)
+roughness = 0.95
+
 [node name="GuardAgent" type="CharacterBody3D"]
 collision_layer = 4
 collision_mask = 1
@@ -26,7 +47,22 @@ shape = SubResource("CapsuleShape_guard")
 
 [node name="Visual" type="MeshInstance3D" parent="."]
 position = Vector3(0, 0.5, 0)
+material_override = SubResource("Material_guard")
 mesh = SubResource("BoxMesh_guard")
+
+[node name="Beacon" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.02, -0.35)
+mesh = SubResource("BoxMesh_guard_light")
+[node name="FrontWheel" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.32, -0.72)
+rotation_degrees = Vector3(0, 0, 90)
+material_override = SubResource("Material_guard_tire")
+mesh = SubResource("CylinderMesh_guard_wheel")
+[node name="RearWheel" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.32, 0.72)
+rotation_degrees = Vector3(0, 0, 90)
+material_override = SubResource("Material_guard_tire")
+mesh = SubResource("CylinderMesh_guard_wheel")
 
 [node name="NavigationAgent3D" type="NavigationAgent3D" parent="."]
 

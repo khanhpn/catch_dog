@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource type="Script" path="res://src/vehicle/player_vehicle.gd" id="1_vehicle"]
 [ext_resource type="Resource" path="res://src/vehicle/player_vehicle_stats.tres" id="2_stats"]
@@ -20,6 +20,42 @@ radial_segments = 16
 [sub_resource type="BoxMesh" id="BoxMesh_handlebars"]
 size = Vector3(1.1, 0.12, 0.12)
 
+[sub_resource type="StandardMaterial3D" id="Material_blue"]
+albedo_color = Color(0.02, 0.2, 0.72, 1)
+metallic = 0.45
+roughness = 0.28
+
+[sub_resource type="StandardMaterial3D" id="Material_tire"]
+albedo_color = Color(0.015, 0.018, 0.022, 1)
+roughness = 0.94
+
+[sub_resource type="StandardMaterial3D" id="Material_metal"]
+albedo_color = Color(0.45, 0.5, 0.56, 1)
+metallic = 0.85
+roughness = 0.22
+
+[sub_resource type="StandardMaterial3D" id="Material_seat"]
+albedo_color = Color(0.025, 0.03, 0.04, 1)
+roughness = 0.82
+
+[sub_resource type="StandardMaterial3D" id="Material_light"]
+albedo_color = Color(0.8, 0.9, 1, 1)
+emission_enabled = true
+emission = Color(0.65, 0.85, 1, 1)
+emission_energy_multiplier = 2.0
+
+[sub_resource type="BoxMesh" id="BoxMesh_seat"]
+material = SubResource("Material_seat")
+size = Vector3(0.62, 0.18, 0.95)
+
+[sub_resource type="PrismMesh" id="PrismMesh_fairing"]
+material = SubResource("Material_blue")
+size = Vector3(0.78, 0.82, 0.8)
+
+[sub_resource type="BoxMesh" id="BoxMesh_headlight"]
+material = SubResource("Material_light")
+size = Vector3(0.48, 0.24, 0.08)
+
 [sub_resource type="SphereShape3D" id="SphereShape_camera"]
 radius = 0.25
 
@@ -35,21 +71,38 @@ shape = SubResource("CapsuleShape_vehicle")
 
 [node name="BodyMesh" type="MeshInstance3D" parent="VisualPivot"]
 position = Vector3(0, 0.9, 0)
+material_override = SubResource("Material_blue")
 mesh = SubResource("BoxMesh_body")
 
 [node name="FrontWheel" type="MeshInstance3D" parent="VisualPivot"]
 position = Vector3(0, 0.38, -0.75)
 rotation = Vector3(0, 0, 1.5708)
+material_override = SubResource("Material_tire")
 mesh = SubResource("CylinderMesh_wheel")
 
 [node name="RearWheel" type="MeshInstance3D" parent="VisualPivot"]
 position = Vector3(0, 0.38, 0.75)
 rotation = Vector3(0, 0, 1.5708)
+material_override = SubResource("Material_tire")
 mesh = SubResource("CylinderMesh_wheel")
 
 [node name="Handlebars" type="MeshInstance3D" parent="VisualPivot"]
 position = Vector3(0, 1.25, -0.55)
+material_override = SubResource("Material_metal")
 mesh = SubResource("BoxMesh_handlebars")
+
+[node name="Seat" type="MeshInstance3D" parent="VisualPivot"]
+position = Vector3(0, 1.18, 0.3)
+mesh = SubResource("BoxMesh_seat")
+
+[node name="FrontFairing" type="MeshInstance3D" parent="VisualPivot"]
+position = Vector3(0, 1.02, -0.78)
+rotation_degrees = Vector3(0, 0, 90)
+mesh = SubResource("PrismMesh_fairing")
+
+[node name="Headlight" type="MeshInstance3D" parent="VisualPivot"]
+position = Vector3(0, 1.18, -1.14)
+mesh = SubResource("BoxMesh_headlight")
 
 [node name="CameraRig" type="Node3D" parent="."]
 script = ExtResource("3_camera")
