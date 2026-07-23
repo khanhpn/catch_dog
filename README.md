@@ -29,6 +29,33 @@ scripts/dev/godot.sh --path .
 
 Open `project.godot` in the editor, or run the project with the second command. The main scene is `src/app/main.tscn`.
 
+### Run development build on macOS
+
+Install Godot **4.6.3** in `/Applications/Godot.app`, clone this repository,
+then run from Terminal:
+
+```sh
+cd /path/to/catch_dog
+scripts/dev/run_macos.sh
+```
+
+The terminal remains attached and prints runtime errors. To open the editor
+instead:
+
+```sh
+scripts/dev/godot.sh --editor --path .
+```
+
+If Godot has another name or location:
+
+```sh
+CATCH_DOG_GODOT_BIN="/Applications/Godot 4.6.3.app/Contents/MacOS/Godot" \
+  scripts/dev/run_macos.sh
+```
+
+This source-based development path does not require downloading a release or
+removing macOS quarantine attributes.
+
 ## Controls
 
 | Key | Action |

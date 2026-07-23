@@ -42,6 +42,10 @@ validator_line="$(grep -n -m1 'scripts/dev/validate_project.gd' scripts/ci/build
 }
 grep -Fq 'user://test_settings_store.json' tests/integration/test_app_flow.gd
 grep -Fq 'textures/vram_compression/import_etc2_astc=true' project.godot
+if grep -R -n -E '\bfree\.call_deferred\(' src; then
+  echo "Exported GDScript cannot compile free.call_deferred(); use Object.call_deferred instead" >&2
+  exit 1
+fi
 
 grep -Fq 'branches: [main]' .github/workflows/release.yml
 grep -Fq 'scripts/ci/next_patch_version.sh' .github/workflows/release.yml
