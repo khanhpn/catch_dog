@@ -9,3 +9,7 @@ catch-dog-macos-universal.zip
 SHA256SUMS.txt
 *.tmp
 *.log
+# Godot regenerates missing script UIDs; existing tracked UIDs remain authoritative.
+*.gd.uid
+# The Pages image is not imported by the game.
+site/**/*.import
