@@ -6,6 +6,7 @@ readonly GODOT_BIN="${CATCH_DOG_GODOT_BIN:-godot}"
 
 "$GODOT_BIN" --headless --path . --script scripts/dev/validate_project.gd
 "$GODOT_BIN" --headless --path . --script tests/test_runner.gd
+"$GODOT_BIN" --headless --path . --script scripts/dev/soak_test.gd
 
 mkdir -p builds/windows builds/macos
 find builds/windows builds/macos -mindepth 1 -maxdepth 1 -delete

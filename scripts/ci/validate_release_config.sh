@@ -26,6 +26,7 @@ grep -Fq 'binary_format/architecture="universal"' export_presets.cfg
 grep -Fq 'readonly GODOT_VERSION="4.6.3"' scripts/ci/install_godot.sh
 grep -Eq 'EDITOR_SHA256="[0-9a-f]{64}"' scripts/ci/install_godot.sh
 grep -Eq 'TEMPLATES_SHA256="[0-9a-f]{64}"' scripts/ci/install_godot.sh
+grep -Fq 'scripts/dev/soak_test.gd' scripts/ci/build_exports.sh
 
 for script in scripts/ci/*.sh scripts/dev/validate_docs.sh scripts/dev/validate_site.sh; do
   bash -n "$script"

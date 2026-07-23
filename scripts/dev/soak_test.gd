@@ -1,13 +1,16 @@
 extends SceneTree
 
 
-const DogCatalogRule = preload("res://src/dogs/dog_catalog.gd")
+const DogAgentScene = preload("res://src/dogs/dog_agent.tscn")
 const GameSessionRule = preload("res://src/session/game_session.gd")
 const GameplayScene = preload("res://src/session/gameplay.tscn")
+const GuardAgentScene = preload("res://src/guards/guard_agent.tscn")
 const GuardAgentRule = preload("res://src/guards/guard_agent.gd")
+const GuardDirectorRule = preload("res://src/guards/guard_director.gd")
 const NetProjectileRule = preload("res://src/capture/net_projectile.gd")
 const SessionRulesRule = preload("res://src/session/session_rules.gd")
-const WeightedPickerRule = preload("res://src/dogs/weighted_picker.gd")
+const SpawnDirectorRule = preload("res://src/dogs/spawn_director.gd")
+const SpawnPointRule = preload("res://src/dogs/spawn_point.gd")
 
 const SESSION_RESTARTS := 50
 const SPAWN_ATTEMPTS := 2000
@@ -38,39 +41,90 @@ func _run() -> void:
 	gameplay.free()
 	await process_frame
 
-	var catalog := DogCatalogRule.new()
-	var weights := PackedFloat32Array()
-	for entry in catalog.entries:
-		weights.append(entry.weight)
-	for attempt in SPAWN_ATTEMPTS:
-		var roll := float((attempt * 7919) % SPAWN_ATTEMPTS) / float(SPAWN_ATTEMPTS)
-		var picked := WeightedPickerRule.pick_index(weights, roll)
-		if picked < 0 or picked >= catalog.entries.size():
-			failures.append("Weighted spawn attempt %d returned an invalid index." % attempt)
+	var spawn_director := SpawnDirectorRule.new()
+	var spawn_player := Node3D.new()
+	var first_marker := SpawnPointRule.new()
+	var second_marker := SpawnPointRule.new()
+	spawn_player.position = Vector3.ZERO
+	first_marker.position = Vector3(30.0, 0.0, 0.0)
+	second_marker.position = Vector3(34.0, 0.0, 0.0)
+	spawn_director.player = spawn_player
+	spawn_director.set_population_active(false)
+	spawn_director.set_test_markers([first_marker, second_marker])
+	spawn_director.set_test_roll_source(func() -> float: return 0.5)
+	spawn_director.add_child(spawn_player)
+	spawn_director.add_child(first_marker)
+	spawn_director.add_child(second_marker)
+	root.add_child(spawn_director)
+	for cycle in SPAWN_ATTEMPTS / 2:
+		spawn_director.set_test_marker_validation(first_marker, false, false, true)
+		spawn_director.set_test_marker_validation(second_marker, false, false, true)
+		var first_dog = spawn_director.request_dog_spawn()
+		spawn_director.set_test_marker_validation(first_marker, false, true, true)
+		var second_dog = spawn_director.request_dog_spawn()
+		if first_dog == null or second_dog == null:
+			failures.append("Spawn cycle %d failed to create both validated dogs." % cycle)
 			break
+		if first_dog.position.distance_to(second_dog.position) <= spawn_director.spawn_clear_radius:
+			failures.append("Spawn cycle %d placed two dogs inside the reserved radius." % cycle)
+			break
+		first_dog.free()
+		second_dog.free()
+		if spawn_director.active_dog_count() != 0:
+			failures.append("Spawn cycle %d retained an invalid dog reference." % cycle)
+			break
+	spawn_director.free()
 
 	for event in NET_EVENTS:
+		var dog = DogAgentScene.instantiate()
+		dog.capture_effect_duration = 0.0
+		root.add_child(dog)
 		var projectile := NetProjectileRule.new()
+		root.add_child(projectile)
+		var capture_count := [0]
+		projectile.capture_confirmed.connect(
+			func(_stats) -> void: capture_count[0] += 1,
+		)
 		projectile.launch(Vector3.ZERO, Vector3.FORWARD * 10.0, Vector3.ZERO)
-		projectile.simulate_miss()
-		projectile.simulate_miss()
-		if not projectile.resolved:
-			failures.append("Net event %d did not reach one terminal state." % event)
-			projectile.free()
+		projectile.simulate_hit(dog)
+		projectile.simulate_hit(dog)
+		if not projectile.resolved or capture_count[0] != 1:
+			failures.append("Net event %d did not resolve exactly one capture." % event)
 			break
-		projectile.free()
+		if is_instance_valid(projectile):
+			projectile.free()
+		if is_instance_valid(dog):
+			dog.free()
 
 	for lifecycle in GUARD_LIFECYCLES:
-		var guard := GuardAgentRule.new()
+		var guard_director := GuardDirectorRule.new()
+		var first_zone := Marker3D.new()
+		var second_zone := Marker3D.new()
+		first_zone.position = Vector3(-10.0, 0.0, 0.0)
+		second_zone.position = Vector3(10.0, 0.0, 0.0)
+		guard_director.add_child(first_zone)
+		guard_director.add_child(second_zone)
+		guard_director.set_world_zones([first_zone, second_zone])
+		guard_director.set_test_visibility_check(func(_node) -> bool: return false)
+		guard_director.set_test_replacement_scheduler(
+			func(_delay: float, callback: Callable) -> void: callback.call(),
+		)
+		guard_director.set_test_guard_factory(
+			func(): return GuardAgentScene.instantiate(),
+		)
+		root.add_child(guard_director)
+		var guard := GuardAgentScene.instantiate() as GuardAgentRule
+		guard_director.add_child(guard)
 		guard.ensure_initialized()
+		guard_director.register_guard(guard)
+		guard_director.assign_guard_zone(guard, first_zone)
 		guard.state = GuardAgentRule.State.PURSUING
 		guard.exhaust()
-		if guard.state != GuardAgentRule.State.EXHAUSTED or not is_zero_approx(guard.fuel.amount):
-			failures.append("Guard lifecycle %d did not exhaust cleanly." % lifecycle)
-			guard.free()
+		guard_director.process_replacements()
+		if guard.state != GuardAgentRule.State.RETIRED or guard_director.non_retired_guard_count() != 1:
+			failures.append("Guard lifecycle %d did not retire and replace exactly once." % lifecycle)
 			break
-		guard.retire()
-		guard.free()
+		guard_director.free()
 
 	for session_index in SESSION_RESTARTS:
 		var rules := SessionRulesRule.new()
