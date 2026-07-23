@@ -2,42 +2,33 @@ class_name ResultScreen
 extends CanvasLayer
 
 
+const SessionResultRule = preload("res://src/session/session_result.gd")
+
+
 signal replay_requested
 
 
-var _payload: Dictionary = {}
+var _result: SessionResultRule
 
 
-func present(payload: Dictionary) -> bool:
-	if not validate_payload(payload):
+func present(result: SessionResultRule) -> bool:
+	if result == null or not result.is_valid():
 		return false
-	_payload = payload.duplicate(true)
-	$Overlay/Card/Content/Title.text = "THẮNG!" if bool(payload.won) else "KẾT THÚC"
-	$Overlay/Card/Content/Reason.text = _reason_text(payload.reason as StringName)
+	_result = result
+	$Overlay/Card/Content/Title.text = "THẮNG!" if result.won else "KẾT THÚC"
+	$Overlay/Card/Content/Reason.text = _reason_text(result.reason)
 	$Overlay/Card/Content/Stats.text = "Điểm: %d / 100\nSố chó bắt được: %d\nThời gian còn lại: %s" % [
-		int(payload.score),
-		int(payload.captures),
-		_format_time(float(payload.remaining_time)),
+		result.score,
+		result.captures,
+		_format_time(result.remaining_time),
 	]
 	visible = true
 	return true
 
 
 func clear() -> void:
-	_payload.clear()
+	_result = null
 	visible = false
-
-
-func validate_payload(payload: Dictionary) -> bool:
-	return (
-		payload.size() == 5
-		and payload.has_all(["won", "reason", "score", "remaining_time", "captures"])
-		and payload.won is bool
-		and payload.reason is StringName
-		and payload.score is int
-		and payload.remaining_time is float
-		and payload.captures is int
-	)
 
 
 func _on_replay_pressed() -> void:

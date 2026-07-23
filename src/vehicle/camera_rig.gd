@@ -29,10 +29,8 @@ func _ready() -> void:
 		return
 	top_level = true
 	global_transform = Transform3D.IDENTITY
-	_smoothed_follow_transform = _target_follow_transform()
 	_collision_probe.add_exception(_target)
-	_camera.global_position = _desired_camera_position()
-	_camera.look_at(_focus_position(), Vector3.UP)
+	reset_runtime_state()
 
 
 func _physics_process(delta: float) -> void:
@@ -100,6 +98,18 @@ func resolve_camera_distance(
 		return target_distance
 	var smoothing_weight := 1.0 - exp(-position_smoothing * maxf(delta, 0.0))
 	return lerpf(maxf(current_distance, 0.0), target_distance, smoothing_weight)
+
+
+func reset_runtime_state() -> void:
+	if not is_instance_valid(_target):
+		return
+	_smoothed_follow_transform = _target_follow_transform()
+	_camera.global_position = _desired_camera_position()
+	_camera.look_at(_focus_position(), Vector3.UP)
+
+
+func follow_anchor_position() -> Vector3:
+	return _smoothed_follow_transform.origin
 
 
 func _obstruction_distance(focus: Vector3, desired: Vector3) -> float:

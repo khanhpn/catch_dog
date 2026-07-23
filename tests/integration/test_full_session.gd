@@ -4,9 +4,13 @@ extends "res://tests/test_case.gd"
 const GameplayScenePath := "res://src/session/gameplay.tscn"
 const NeighborhoodScenePath := "res://src/world/neighborhood.tscn"
 const DogCatalogRule = preload("res://src/dogs/dog_catalog.gd")
+const DogAgentRule = preload("res://src/dogs/dog_agent.gd")
 const GuardDirectorRule = preload("res://src/guards/guard_director.gd")
+const GuardAgentRule = preload("res://src/guards/guard_agent.gd")
+const HudRule = preload("res://src/ui/hud.gd")
 const LauncherRule = preload("res://src/capture/net_launcher.gd")
 const PlayerVehicleRule = preload("res://src/vehicle/player_vehicle.gd")
+const SpawnDirectorRule = preload("res://src/dogs/spawn_director.gd")
 
 
 func test_authored_neighborhood_has_complete_stable_gameplay_layout() -> void:
@@ -36,6 +40,52 @@ func test_authored_neighborhood_has_complete_stable_gameplay_layout() -> void:
 	neighborhood.free()
 
 
+func test_authored_navigation_routes_around_buildings_and_rejects_outside_targets() -> void:
+	var neighborhood := (load(NeighborhoodScenePath) as PackedScene).instantiate() as Node3D
+	add_child(neighborhood)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	var region := neighborhood.get_node("NavigationRegion3D") as NavigationRegion3D
+	var navigation_map := region.get_navigation_map()
+	NavigationServer3D.map_force_update(navigation_map)
+	await get_tree().physics_frame
+	var start := Vector3(-40.0, 0.1, -25.0)
+	var target := Vector3(0.0, 0.1, -13.0)
+	var routed_path := _query_navigation_path(navigation_map, start, target)
+	var north_west_house := neighborhood.get_node("StaticCollision/HouseNW") as StaticBody3D
+
+	var navigation_debug := "path=%s regions=%d iteration=%d" % [
+		routed_path,
+		NavigationServer3D.map_get_regions(navigation_map).size(),
+		NavigationServer3D.map_get_iteration_id(navigation_map),
+	]
+	check(NavigationServer3D.map_get_regions(navigation_map).has(region.get_rid()), "Navigation map must contain this neighborhood's region RID")
+	check(not routed_path.is_empty() and routed_path[-1].distance_to(target) < 0.6, "A road-to-alley route must reach its accessible target (%s)" % navigation_debug)
+	check(_path_length(routed_path) > start.distance_to(target) + 2.0, "The route must detour instead of taking a blocked straight line through a house (%s)" % navigation_debug)
+	check(not _path_crosses_box(routed_path, north_west_house), "Authored navigation must never cross the HouseNW collision footprint")
+	var loop_path := _query_navigation_path(
+		navigation_map,
+		Vector3(-40.0, 0.1, -42.0),
+		Vector3(40.0, 0.1, 42.0),
+	)
+	check(not loop_path.is_empty() and loop_path[-1].distance_to(Vector3(40.0, 0.1, 42.0)) < 0.6, "The looped road must remain fully connected (path=%s)" % loop_path)
+	var outside_path := _query_navigation_path(navigation_map, start, Vector3(80.0, 0.1, 0.0))
+	check(outside_path.is_empty() or outside_path[-1].distance_to(Vector3(80.0, 0.1, 0.0)) > 1.0, "Perimeter collision must not have reachable navigation outside the neighborhood")
+	neighborhood.free()
+
+
+func test_dead_end_barriers_have_real_static_collision() -> void:
+	var neighborhood := (load(NeighborhoodScenePath) as PackedScene).instantiate() as Node3D
+	add_child(neighborhood)
+	for barrier_name in [&"NorthBarrier", &"SouthBarrier"]:
+		var barrier := neighborhood.get_node("DeadEnds/%s" % barrier_name)
+		check(barrier is StaticBody3D, "%s must be a StaticBody3D, not visual-only geometry" % barrier_name)
+		if barrier is StaticBody3D:
+			var shape := barrier.get_node_or_null("CollisionShape3D") as CollisionShape3D
+			check(shape != null and shape.shape != null and not shape.disabled, "%s must own an enabled collision shape" % barrier_name)
+	neighborhood.free()
+
+
 func test_100_points_wins_and_freezes_gameplay_once() -> void:
 	var gameplay := _make_gameplay()
 	if gameplay == null:
@@ -52,6 +102,12 @@ func test_100_points_wins_and_freezes_gameplay_once() -> void:
 	var payload := gameplay.last_result_payload as Dictionary
 	check(payload.get("won") == true and payload.get("reason") == &"score_goal", "Win payload must preserve the terminal reason")
 	check(payload.get("score") == 100 and payload.get("captures") == 2, "Win payload must contain score and accepted capture count")
+	check(
+		ResourceLoader.exists("res://src/session/session_result.gd")
+		and gameplay.get("last_result") != null
+		and gameplay.get("last_result").get_script() == load("res://src/session/session_result.gd"),
+		"Gameplay must own a typed SessionResult instead of a raw Dictionary",
+	)
 	gameplay.free()
 
 
@@ -86,6 +142,68 @@ func test_production_signals_feed_catalog_points_and_distinct_losses() -> void:
 	gameplay.free()
 
 
+func test_real_launcher_target_signal_starts_and_stops_spawned_dog_fleeing() -> void:
+	var gameplay := _make_gameplay()
+	if gameplay == null:
+		return
+	await get_tree().process_frame
+	var director := gameplay.get_node("Runtime/DogSpawnDirector") as SpawnDirectorRule
+	var dogs: Array[DogAgentRule] = director.active_dogs()
+	check(not dogs.is_empty(), "Production SpawnDirector must provide a dog for the lock integration fixture")
+	if dogs.is_empty():
+		gameplay.free()
+		return
+	var player := gameplay.get_node("Runtime/Player") as PlayerVehicleRule
+	var launcher := gameplay.get_node("Runtime/Player/NetLauncher") as LauncherRule
+	var dog := dogs[0]
+	dog.global_position = launcher.global_position - launcher.global_basis.z * 8.0
+
+	launcher.update_target_from_candidates(
+		launcher.global_transform,
+		_one_dog(dog),
+		func(_candidate: DogAgentRule) -> bool: return true,
+	)
+	check(dog.state == DogAgentRule.State.FLEEING, "A real launcher target_changed signal must start the newly locked dog fleeing")
+	check(dog.get_node("NavigationAgent3D").target_position.distance_to(player.global_position) > 1.0, "Flee navigation target must be directed away from the player")
+	var no_dogs: Array[DogAgentRule] = []
+	launcher.update_target_from_candidates(launcher.global_transform, no_dogs, Callable())
+	check(dog.state == DogAgentRule.State.IDLE and dog.velocity == Vector3.ZERO, "Clearing or replacing the lock must stop the prior dog's flee lifecycle")
+	gameplay.free()
+
+
+func test_threat_ring_uses_heading_updates_and_separates_overlapping_directions() -> void:
+	var gameplay := _make_gameplay()
+	if gameplay == null:
+		return
+	var hud := gameplay.get_node("HUD") as HudRule
+	check(hud.has_method("update_threat_ring") and hud.has_method("threat_indicator_positions"), "HUD must expose typed relative threat-ring update and inspection APIs")
+	if not hud.has_method("update_threat_ring") or not hud.has_method("threat_indicator_positions"):
+		gameplay.free()
+		return
+	var identical: Array[Vector3] = [Vector3.RIGHT, Vector3.RIGHT]
+	hud.update_threat_ring(identical, Basis.IDENTITY)
+	var first_positions: PackedVector2Array = hud.threat_indicator_positions()
+	check(first_positions.size() == 2 and first_positions[0].distance_to(first_positions[1]) > 4.0, "Threats with matching bearings must occupy distinct ring positions")
+	var right_threat: Array[Vector3] = [Vector3.RIGHT]
+	hud.update_threat_ring(right_threat, Basis.IDENTITY)
+	var identity_position: Vector2 = hud.threat_indicator_positions()[0]
+	hud.update_threat_ring(right_threat, Basis(Vector3.UP, PI * 0.5))
+	var turned_position: Vector2 = hud.threat_indicator_positions()[0]
+	check(identity_position.distance_to(turned_position) > 20.0, "Threat indicator bearing must transform relative to player/camera heading")
+
+	var player := gameplay.get_node("Runtime/Player") as PlayerVehicleRule
+	var director := gameplay.get_node("Runtime/GuardDirector") as GuardDirectorRule
+	var guard := director.get_child(0) as GuardAgentRule
+	guard.begin_pursuit(player)
+	gameplay._physics_process(0.0)
+	var moving_start: Vector2 = hud.threat_indicator_positions()[0]
+	guard.global_position = player.global_position + Vector3(30.0, 0.0, 0.0)
+	gameplay._physics_process(0.0)
+	var moving_end: Vector2 = hud.threat_indicator_positions()[0]
+	check(moving_start.distance_to(moving_end) > 4.0, "Threat ring must refresh while pursuing actors move, not only on lifecycle signals")
+	gameplay.free()
+
+
 func test_result_payload_is_complete_and_terminal_transition_is_idempotent() -> void:
 	var gameplay := _make_gameplay()
 	if gameplay == null:
@@ -102,6 +220,58 @@ func test_result_payload_is_complete_and_terminal_transition_is_idempotent() -> 
 	check(payload.get("won") == false and payload.get("reason") == &"caught", "Loss payload must keep its first terminal reason")
 	check(payload.get("score") == 40 and is_equal_approx(float(payload.get("remaining_time")), 167.5), "Loss payload must snapshot score and remaining time")
 	check(payload.get("captures") == 1, "Loss payload must snapshot capture count")
+	gameplay.free()
+
+
+func test_immediate_replay_resets_launcher_projectiles_vehicle_and_camera_through_typed_apis() -> void:
+	var gameplay := _make_gameplay()
+	if gameplay == null:
+		return
+	await get_tree().process_frame
+	var launcher := gameplay.get_node("Runtime/Player/NetLauncher") as LauncherRule
+	var director := gameplay.get_node("Runtime/DogSpawnDirector") as SpawnDirectorRule
+	var dogs: Array[DogAgentRule] = director.active_dogs()
+	check(not dogs.is_empty(), "Replay fixture requires an owned spawned dog")
+	if dogs.is_empty():
+		gameplay.free()
+		return
+	var dog := dogs[0]
+	dog.global_position = launcher.global_position - launcher.global_basis.z * 8.0
+	launcher.update_target_from_candidates(
+		launcher.global_transform,
+		_one_dog(dog),
+		func(_candidate: DogAgentRule) -> bool: return true,
+	)
+	check(launcher.try_throw(), "Replay fixture must launch a real projectile immediately before reset")
+	check(launcher.cooldown_ratio() < 1.0 and gameplay.get_node("Runtime/Projectiles").get_child_count() == 1, "Fixture must begin with cooldown and one live projectile")
+	var player := gameplay.get_node("Runtime/Player") as PlayerVehicleRule
+	var camera := player.get_node("CameraRig")
+	check(player.has_method("reset_runtime_state"), "PlayerVehicle must expose a typed runtime reset API")
+	check(launcher.has_method("reset_runtime_state"), "NetLauncher must expose a typed runtime reset API")
+	check(camera.has_method("reset_runtime_state") and camera.has_method("follow_anchor_position"), "CameraRig must expose typed reset and inspection APIs")
+	if (
+		not player.has_method("reset_runtime_state")
+		or not launcher.has_method("reset_runtime_state")
+		or not camera.has_method("reset_runtime_state")
+		or not camera.has_method("follow_anchor_position")
+	):
+		gameplay.free()
+		return
+
+	gameplay.reset_for_test()
+
+	check(is_equal_approx(launcher.cooldown_ratio(), 1.0) and not launcher.has_target(), "Replay must restore launcher readiness and clear its lock")
+	check(gameplay.get_node("Runtime/Projectiles").get_child_count() == 0, "Replay must free all live projectiles")
+	check(player.global_position.distance_to(Vector3(0.0, 0.1, 34.0)) < 0.01 and player.velocity == Vector3.ZERO, "Replay must restore player pose and motion")
+	check(camera.follow_anchor_position().distance_to(player.global_position + Vector3.UP * camera.focus_height) < 0.01, "Replay must snap camera smoothing to the restored player pose")
+	var capture_connection_count := launcher.capture_confirmed.get_connections().size()
+	var target_connection_count := launcher.target_changed.get_connections().size()
+	for cycle in range(3):
+		gameplay.capture_for_test(100)
+		gameplay.reset_for_test()
+	check(launcher.capture_confirmed.get_connections().size() == capture_connection_count, "Repeated replay must not duplicate launcher signal connections")
+	check(launcher.target_changed.get_connections().size() == target_connection_count, "Repeated replay must not duplicate target lifecycle connections")
+	check(gameplay.get_node("Runtime/Projectiles").get_child_count() == 0, "Repeated replay cycles must not leak projectiles")
 	gameplay.free()
 
 
@@ -161,3 +331,48 @@ func _make_gameplay() -> Node:
 	var gameplay := packed.instantiate()
 	add_child(gameplay)
 	return gameplay
+
+
+func _query_navigation_path(navigation_map: RID, start: Vector3, target: Vector3) -> PackedVector3Array:
+	var parameters := NavigationPathQueryParameters3D.new()
+	parameters.map = navigation_map
+	parameters.start_position = start
+	parameters.target_position = target
+	parameters.navigation_layers = 1
+	var result := NavigationPathQueryResult3D.new()
+	NavigationServer3D.query_path(parameters, result)
+	return result.path
+
+
+func _path_length(path: PackedVector3Array) -> float:
+	var length := 0.0
+	for index in range(1, path.size()):
+		length += path[index - 1].distance_to(path[index])
+	return length
+
+
+func _path_crosses_box(path: PackedVector3Array, body: StaticBody3D) -> bool:
+	var shape_node: CollisionShape3D
+	for child in body.get_children():
+		var candidate := child as CollisionShape3D
+		if candidate != null:
+			shape_node = candidate
+			break
+	if shape_node == null:
+		return true
+	var box := shape_node.shape as BoxShape3D
+	var half_size := box.size * 0.5
+	for index in range(1, path.size()):
+		var from := path[index - 1]
+		var to := path[index]
+		var steps := maxi(ceili(from.distance_to(to) / 0.25), 1)
+		for step in range(steps + 1):
+			var point := from.lerp(to, float(step) / float(steps))
+			var local := body.to_local(point)
+			if absf(local.x) < half_size.x and absf(local.z) < half_size.z:
+				return true
+	return false
+
+
+func _one_dog(dog: DogAgentRule) -> Array[DogAgentRule]:
+	return [dog]

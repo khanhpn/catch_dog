@@ -46,14 +46,49 @@ func update_target_state(locked: bool, cooldown_ratio: float) -> void:
 
 func update_chase(active: bool, directions: Array[Vector3]) -> void:
 	_chase_warning.visible = active
+	if not active:
+		directions = []
+	update_threat_ring(directions, Basis.IDENTITY)
+
+
+func update_threat_ring(directions: Array[Vector3], observer_basis: Basis) -> void:
+	_chase_warning.visible = not directions.is_empty()
 	for child in _threat_indicators.get_children():
 		child.free()
+	var occupied_angles := PackedFloat32Array()
 	for direction in directions:
+		var local_direction := observer_basis.inverse() * direction
+		local_direction.y = 0.0
+		if local_direction.is_zero_approx():
+			continue
+		local_direction = local_direction.normalized()
+		var angle := atan2(local_direction.x, -local_direction.z)
+		while _angle_is_occupied(angle, occupied_angles):
+			angle = wrapf(angle + 0.22, -PI, PI)
+		occupied_angles.append(angle)
 		var indicator := Label.new()
 		indicator.text = "▲"
 		indicator.add_theme_font_size_override("font_size", 24)
-		indicator.position = Vector2(132.0, 52.0)
+		indicator.size = Vector2(24.0, 24.0)
+		var ring_offset := Vector2(sin(angle) * 110.0, -cos(angle) * 45.0)
+		indicator.position = Vector2(140.0, 60.0) + ring_offset - indicator.size * 0.5
 		indicator.pivot_offset = Vector2(12.0, 12.0)
-		indicator.rotation = atan2(direction.x, -direction.z)
+		indicator.rotation = angle
 		indicator.modulate = Color("ff665c")
 		_threat_indicators.add_child(indicator)
+
+
+func threat_indicator_positions() -> PackedVector2Array:
+	var positions := PackedVector2Array()
+	for child in _threat_indicators.get_children():
+		var control := child as Control
+		if control != null:
+			positions.append(control.position + control.size * 0.5)
+	return positions
+
+
+func _angle_is_occupied(angle: float, occupied_angles: PackedFloat32Array) -> bool:
+	for occupied in occupied_angles:
+		if absf(wrapf(angle - occupied, -PI, PI)) < 0.2:
+			return true
+	return false

@@ -68,6 +68,10 @@ func current_target() -> DogAgentRule:
 	return target
 
 
+func clear_target() -> void:
+	_set_target(null)
+
+
 func _has_line_of_sight(
 	origin: Transform3D,
 	dog: DogAgentRule,

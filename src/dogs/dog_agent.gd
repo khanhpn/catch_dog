@@ -58,6 +58,15 @@ func begin_flee(threat_position: Vector3) -> void:
 	)
 
 
+func stop_fleeing() -> void:
+	if state != State.FLEEING:
+		return
+	state = State.IDLE
+	velocity = Vector3.ZERO
+	var navigation_agent := _navigation_agent()
+	navigation_agent.target_position = _world_position()
+
+
 func capture() -> bool:
 	if state == State.CAPTURED:
 		return false

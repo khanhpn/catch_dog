@@ -24,6 +24,7 @@ const DETECTION_RADIUS_METERS := 45.0
 var _selector := TargetSelectorRule.new()
 var _cooldown_elapsed := COOLDOWN_SECONDS
 var _projectile_factory := Callable()
+var _active_projectiles: Array[NetProjectileRule] = []
 
 
 func _init() -> void:
@@ -66,6 +67,8 @@ func try_throw() -> bool:
 		return false
 	var parent := projectile_parent if is_instance_valid(projectile_parent) else self
 	parent.add_child(projectile)
+	_active_projectiles.append(projectile)
+	projectile.tree_exiting.connect(_on_projectile_tree_exiting.bind(projectile), CONNECT_ONE_SHOT)
 	var origin := global_position if is_inside_tree() else position
 	var target_position := target.capture_target_position()
 	projectile.capture_confirmed.connect(_on_projectile_capture_confirmed)
@@ -90,6 +93,15 @@ func has_target() -> bool:
 	return _selector.current_target() != null
 
 
+func reset_runtime_state() -> void:
+	_selector.clear_target()
+	_cooldown_elapsed = COOLDOWN_SECONDS
+	for projectile in _active_projectiles.duplicate():
+		if is_instance_valid(projectile):
+			projectile.free()
+	_active_projectiles.clear()
+
+
 func set_projectile_factory_for_test(factory: Callable) -> void:
 	_projectile_factory = factory
 
@@ -112,6 +124,10 @@ func _on_target_changed(target: DogAgentRule) -> void:
 
 func _on_projectile_capture_confirmed(stats: DogStatsRule) -> void:
 	capture_confirmed.emit(stats)
+
+
+func _on_projectile_tree_exiting(projectile: NetProjectileRule) -> void:
+	_active_projectiles.erase(projectile)
 
 
 func _resolved_source_body() -> CollisionObject3D:

@@ -12,9 +12,11 @@ const HudRule = preload("res://src/ui/hud.gd")
 const LauncherRule = preload("res://src/capture/net_launcher.gd")
 const NeighborhoodRule = preload("res://src/world/neighborhood.gd")
 const ResultScreenRule = preload("res://src/ui/result_screen.gd")
+const SessionResultRule = preload("res://src/session/session_result.gd")
 const SessionRulesRule = preload("res://src/session/session_rules.gd")
 const SpawnDirectorRule = preload("res://src/dogs/spawn_director.gd")
 const FuelPickupRule = preload("res://src/vehicle/fuel_pickup.gd")
+const CameraRigRule = preload("res://src/vehicle/camera_rig.gd")
 const FuelPickupScene = preload("res://src/vehicle/fuel_pickup.tscn")
 const PlayerVehicleRule = preload("res://src/vehicle/player_vehicle.gd")
 const SESSION_DURATION_SECONDS := 180.0
@@ -23,8 +25,12 @@ const SESSION_DURATION_SECONDS := 180.0
 var session: GameSessionRule
 var result_open_count := 0
 var gameplay_frozen := false
-var last_result_payload: Dictionary = {}
+var last_result: SessionResultRule
+var last_result_payload: Dictionary:
+	get:
+		return last_result.to_payload() if last_result != null else {}
 var capture_count := 0
+var _locked_dog: DogAgentRule
 
 
 @onready var _runtime := $Runtime as Node3D
@@ -57,6 +63,7 @@ func _physics_process(delta: float) -> void:
 		get_world_3d().direct_space_state,
 	)
 	_hud.update_target_state(_launcher.has_target(), _launcher.cooldown_ratio())
+	_hud.update_threat_ring(_guard_director.threat_directions(), _player.global_basis)
 
 
 func capture_for_test(points: int) -> void:
@@ -107,6 +114,7 @@ func _wire_owned_modules() -> void:
 	_guard_director.camera = _player.get_node("CameraRig/Camera3D") as Camera3D
 	_guard_director.bind_launcher(_launcher)
 	_connect_once(_launcher.capture_confirmed, _on_capture_confirmed)
+	_connect_once(_launcher.target_changed, _on_target_changed)
 	_connect_once(_player.fuel_changed, _on_player_fuel_changed)
 	_connect_once(_player.stopped_without_fuel, _on_player_stopped_without_fuel)
 	_connect_once(_guard_director.player_caught, _on_player_caught)
@@ -125,7 +133,7 @@ func _start_new_session() -> void:
 	capture_count = 0
 	result_open_count = 0
 	gameplay_frozen = false
-	last_result_payload.clear()
+	last_result = null
 	_result_screen.clear()
 	_set_runtime_enabled(true)
 	_hud.update_score(0, session.score_goal)
@@ -152,6 +160,14 @@ func _on_capture_confirmed(stats: DogStatsRule) -> void:
 	capture_for_test(stats.score)
 
 
+func _on_target_changed(target: DogAgentRule) -> void:
+	if is_instance_valid(_locked_dog) and _locked_dog != target:
+		_locked_dog.stop_fleeing()
+	_locked_dog = target
+	if is_instance_valid(_locked_dog):
+		_locked_dog.begin_flee(_player.global_position)
+
+
 func _on_score_changed(score: int) -> void:
 	_hud.update_score(score, session.score_goal)
 
@@ -175,27 +191,27 @@ func _on_player_caught() -> void:
 
 
 func _on_threat_directions_changed(directions: Array[Vector3]) -> void:
-	_hud.update_chase(not directions.is_empty(), directions)
+	_hud.update_threat_ring(directions, _player.global_basis)
 
 
 func _on_session_finished(won: bool, reason: StringName) -> void:
 	if result_open_count > 0:
 		return
-	var payload := {
-		"won": won,
-		"reason": reason,
-		"score": session.score,
-		"remaining_time": float(session.seconds),
-		"captures": capture_count,
-	}
-	if not _result_screen.validate_payload(payload):
+	var result := SessionResultRule.new(
+		won,
+		reason,
+		session.score,
+		float(session.seconds),
+		capture_count,
+	)
+	if not result.is_valid():
 		push_error("Gameplay produced an invalid result payload")
 		return
-	last_result_payload = payload
+	last_result = result
 	result_open_count = 1
 	gameplay_frozen = true
 	_set_runtime_enabled(false)
-	_result_screen.present(payload)
+	_result_screen.present(result)
 
 
 func _set_runtime_enabled(enabled: bool) -> void:
@@ -206,13 +222,10 @@ func _set_runtime_enabled(enabled: bool) -> void:
 
 
 func _restore_runtime_state() -> void:
-	_player.position = Vector3(0.0, 0.1, 34.0)
-	_player.rotation = Vector3.ZERO
-	_player.velocity = Vector3.ZERO
-	_player.forward_speed = 0.0
-	_player.fuel_percent()
-	_player.fuel.amount = _player.fuel.capacity
-	_player.set("_stopped_signal_emitted", false)
+	_locked_dog = null
+	_player.reset_runtime_state(Transform3D(Basis.IDENTITY, Vector3(0.0, 0.1, 34.0)))
+	_launcher.reset_runtime_state()
+	(_player.get_node("CameraRig") as CameraRigRule).reset_runtime_state()
 
 
 func _clear_dynamic_population() -> void:

@@ -114,6 +114,21 @@ func speed_ratio() -> float:
 	return clampf(absf(forward_speed) / stats.max_speed_mps, 0.0, 1.0)
 
 
+func reset_runtime_state(spawn_transform: Transform3D) -> void:
+	_ensure_initialized()
+	if is_inside_tree():
+		global_transform = spawn_transform
+	else:
+		transform = spawn_transform
+	velocity = Vector3.ZERO
+	forward_speed = 0.0
+	fuel.amount = fuel.capacity
+	_stopped_signal_emitted = false
+	if _visual_pivot != null:
+		_visual_pivot.rotation = Vector3.ZERO
+	fuel_changed.emit(fuel_percent())
+
+
 func _check_stopped_without_fuel() -> void:
 	if is_stopped_without_fuel() and not _stopped_signal_emitted:
 		_stopped_signal_emitted = true
