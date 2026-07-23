@@ -49,6 +49,7 @@ var _retry_started := false
 var _retry_timer: SceneTreeTimer
 var _maintenance_scheduled := false
 var _is_shutting_down := false
+var _population_active := true
 
 
 func _enter_tree() -> void:
@@ -146,6 +147,19 @@ func active_dog_count() -> int:
 	return _active_dogs.size()
 
 
+func active_dogs() -> Array[DogAgentRule]:
+	_prune_active_dogs()
+	return _active_dogs.duplicate()
+
+
+func set_population_active(active: bool) -> void:
+	_population_active = active
+	if not active:
+		_cancel_retry()
+		return
+	_maintain_population()
+
+
 func get_retry_timer() -> SceneTreeTimer:
 	return _retry_timer if is_instance_valid(_retry_timer) else null
 
@@ -206,7 +220,8 @@ func _is_marker_blocked(marker: SpawnPointRule, marker_position: Vector3) -> boo
 	var shape := SphereShape3D.new()
 	shape.radius = spawn_clear_radius
 	query.shape = shape
-	query.transform = Transform3D(Basis.IDENTITY, marker_position)
+	# Test occupancy around the dog's body, not through the supporting road surface.
+	query.transform = Transform3D(Basis.IDENTITY, marker_position + Vector3.UP * (spawn_clear_radius + 0.05))
 	query.collision_mask = spawn_collision_mask
 	query.collide_with_areas = true
 	query.collide_with_bodies = true
@@ -230,7 +245,7 @@ func _node_position(node: Node3D) -> Vector3:
 
 
 func _schedule_retry() -> void:
-	if _retry_pending:
+	if not _population_active or _retry_pending:
 		return
 	_retry_pending = true
 	_start_pending_retry()
@@ -301,6 +316,8 @@ func _run_scheduled_population_maintenance() -> void:
 
 
 func _maintain_population() -> void:
+	if not _population_active:
+		return
 	while active_dog_count() < ACTIVE_DOG_LIMIT:
 		if request_dog_spawn() == null:
 			return

@@ -82,6 +82,14 @@ func advance_cooldown(delta: float) -> void:
 	)
 
 
+func cooldown_ratio() -> float:
+	return clampf(_cooldown_elapsed / COOLDOWN_SECONDS, 0.0, 1.0)
+
+
+func has_target() -> bool:
+	return _selector.current_target() != null
+
+
 func set_projectile_factory_for_test(factory: Callable) -> void:
 	_projectile_factory = factory
 

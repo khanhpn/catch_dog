@@ -1,0 +1,136 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://src/ui/hud.gd" id="1_hud"]
+
+[sub_resource type="StyleBoxFlat" id="Style_panel"]
+bg_color = Color(0.035, 0.055, 0.08, 0.9)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.2, 0.75, 0.92, 0.75)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="Style_fuel_bg"]
+bg_color = Color(0.08, 0.1, 0.12, 0.95)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
+[sub_resource type="StyleBoxFlat" id="Style_fuel_fill"]
+bg_color = Color(0.22, 0.87, 0.48, 1)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
+[sub_resource type="StyleBoxFlat" id="Style_cooldown_fill"]
+bg_color = Color(0.22, 0.72, 0.95, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[node name="HUD" type="CanvasLayer"]
+script = ExtResource("1_hud")
+
+[node name="SafeArea" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="TopBar" type="PanelContainer" parent="SafeArea"]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 20.0
+offset_right = 1256.0
+offset_bottom = 82.0
+theme_override_styles/panel = SubResource("Style_panel")
+
+[node name="Score" type="Label" parent="SafeArea/TopBar"]
+layout_mode = 2
+text = "0 / 100"
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 28
+
+[node name="Time" type="Label" parent="SafeArea/TopBar"]
+layout_mode = 2
+text = "03:00"
+horizontal_alignment = 2
+vertical_alignment = 1
+theme_override_colors/font_color = Color(1, 0.86, 0.33, 1)
+theme_override_font_sizes/font_size = 28
+
+[node name="FuelPanel" type="PanelContainer" parent="SafeArea"]
+layout_mode = 0
+offset_left = 24.0
+offset_top = 622.0
+offset_right = 350.0
+offset_bottom = 696.0
+theme_override_styles/panel = SubResource("Style_panel")
+
+[node name="Fuel" type="ProgressBar" parent="SafeArea/FuelPanel"]
+custom_minimum_size = Vector2(310, 46)
+layout_mode = 2
+value = 100.0
+show_percentage = false
+theme_override_styles/background = SubResource("Style_fuel_bg")
+theme_override_styles/fill = SubResource("Style_fuel_fill")
+
+[node name="Value" type="Label" parent="SafeArea/FuelPanel"]
+layout_mode = 2
+text = "100%"
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 22
+
+[node name="TargetPanel" type="PanelContainer" parent="SafeArea"]
+layout_mode = 0
+offset_left = 930.0
+offset_top = 610.0
+offset_right = 1256.0
+offset_bottom = 696.0
+theme_override_styles/panel = SubResource("Style_panel")
+
+[node name="Cooldown" type="ProgressBar" parent="SafeArea/TargetPanel"]
+custom_minimum_size = Vector2(310, 58)
+layout_mode = 2
+value = 100.0
+show_percentage = false
+theme_override_styles/background = SubResource("Style_fuel_bg")
+theme_override_styles/fill = SubResource("Style_cooldown_fill")
+
+[node name="Status" type="Label" parent="SafeArea/TargetPanel"]
+layout_mode = 2
+text = "NO TARGET"
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 20
+
+[node name="ChaseWarning" type="Label" parent="SafeArea"]
+layout_mode = 0
+offset_left = 476.0
+offset_top = 94.0
+offset_right = 804.0
+offset_bottom = 142.0
+text = "⚠ BỊ BẢO VỆ TRUY ĐUỔI ⚠"
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(1, 0.25, 0.2, 1)
+theme_override_font_sizes/font_size = 22
+
+[node name="ThreatIndicators" type="Control" parent="SafeArea"]
+layout_mode = 0
+offset_left = 500.0
+offset_top = 500.0
+offset_right = 780.0
+offset_bottom = 620.0
+mouse_filter = 2

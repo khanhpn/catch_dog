@@ -1,0 +1,75 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/ui/result_screen.gd" id="1_result"]
+
+[sub_resource type="StyleBoxFlat" id="Style_card"]
+bg_color = Color(0.025, 0.04, 0.065, 0.97)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.24, 0.8, 0.98, 1)
+corner_radius_top_left = 18
+corner_radius_top_right = 18
+corner_radius_bottom_right = 18
+corner_radius_bottom_left = 18
+
+[node name="ResultScreen" type="CanvasLayer"]
+visible = false
+layer = 10
+script = ExtResource("1_result")
+
+[node name="Overlay" type="ColorRect" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.7)
+
+[node name="Card" type="PanelContainer" parent="Overlay"]
+layout_mode = 0
+offset_left = 390.0
+offset_top = 142.0
+offset_right = 890.0
+offset_bottom = 578.0
+theme_override_styles/panel = SubResource("Style_card")
+
+[node name="Content" type="VBoxContainer" parent="Overlay/Card"]
+layout_mode = 2
+theme_override_constants/separation = 24
+alignment = 1
+
+[node name="Title" type="Label" parent="Overlay/Card/Content"]
+custom_minimum_size = Vector2(460, 70)
+layout_mode = 2
+text = "KẾT THÚC"
+horizontal_alignment = 1
+vertical_alignment = 0
+theme_override_font_sizes/font_size = 42
+
+[node name="Reason" type="Label" parent="Overlay/Card/Content"]
+custom_minimum_size = Vector2(460, 58)
+layout_mode = 2
+text = "Lý do"
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_colors/font_color = Color(1, 0.78, 0.32, 1)
+theme_override_font_sizes/font_size = 24
+
+[node name="Stats" type="Label" parent="Overlay/Card/Content"]
+custom_minimum_size = Vector2(460, 150)
+layout_mode = 2
+text = "Điểm: 0 / 100"
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 22
+
+[node name="Replay" type="Button" parent="Overlay/Card/Content"]
+custom_minimum_size = Vector2(460, 62)
+layout_mode = 2
+text = "CHƠI LẠI"
+theme_override_font_sizes/font_size = 22
+
+[connection signal="pressed" from="Overlay/Card/Content/Replay" to="." method="_on_replay_pressed"]

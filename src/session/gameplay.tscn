@@ -1,0 +1,44 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://src/session/gameplay.gd" id="1_gameplay"]
+[ext_resource type="PackedScene" path="res://src/world/neighborhood.tscn" id="2_neighborhood"]
+[ext_resource type="PackedScene" path="res://src/vehicle/player_vehicle.tscn" id="3_player"]
+[ext_resource type="Script" path="res://src/capture/net_launcher.gd" id="4_launcher"]
+[ext_resource type="Script" path="res://src/dogs/spawn_director.gd" id="5_dogs"]
+[ext_resource type="Script" path="res://src/guards/guard_director.gd" id="6_guards"]
+[ext_resource type="PackedScene" path="res://src/ui/hud.tscn" id="7_hud"]
+[ext_resource type="PackedScene" path="res://src/ui/result_screen.tscn" id="8_result"]
+
+[node name="Gameplay" type="Node3D"]
+script = ExtResource("1_gameplay")
+
+[node name="Neighborhood" parent="." instance=ExtResource("2_neighborhood")]
+
+[node name="Runtime" type="Node3D" parent="."]
+
+[node name="Player" parent="Runtime" instance=ExtResource("3_player")]
+position = Vector3(0, 0.1, 34)
+
+[node name="NetLauncher" type="Node3D" parent="Runtime/Player"]
+position = Vector3(0, 1.05, -0.9)
+script = ExtResource("4_launcher")
+
+[node name="DogSpawnDirector" type="Node3D" parent="Runtime"]
+script = ExtResource("5_dogs")
+player = NodePath("../Player")
+camera = NodePath("../Player/CameraRig/Camera3D")
+map_bounds = Rect2(-58, -58, 116, 116)
+
+[node name="PickupDirector" type="Node3D" parent="Runtime"]
+
+[node name="GuardDirector" type="Node3D" parent="Runtime"]
+script = ExtResource("6_guards")
+player = NodePath("../Player")
+launcher = NodePath("../Player/NetLauncher")
+camera = NodePath("../Player/CameraRig/Camera3D")
+
+[node name="Projectiles" type="Node3D" parent="Runtime"]
+
+[node name="HUD" parent="." instance=ExtResource("7_hud")]
+
+[node name="ResultScreen" parent="." instance=ExtResource("8_result")]

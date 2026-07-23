@@ -29,6 +29,7 @@ var _bound_launcher: NetLauncherRule
 var _replacement_scheduler := Callable()
 var _visibility_check := Callable()
 var _guard_factory := Callable()
+var _world_zones: Array[Marker3D] = []
 
 
 func _ready() -> void:
@@ -59,14 +60,18 @@ func bind_launcher(net_launcher: NetLauncherRule) -> void:
 
 
 func set_test_guards(guards: Array[GuardAgentRule]) -> void:
+	clear_guard_registry()
+	for guard in guards:
+		register_guard(guard)
+
+
+func clear_guard_registry() -> void:
 	for guard in _guards.duplicate():
 		_disconnect_guard(guard)
 	_guards.clear()
 	_guard_zones.clear()
 	_replacement_eligible.clear()
 	_release_all_replacement_timers()
-	for guard in guards:
-		register_guard(guard)
 
 
 func register_guard(guard: GuardAgentRule) -> bool:
@@ -121,12 +126,18 @@ func threat_directions() -> Array[Vector3]:
 
 
 func zone_markers() -> Array[Marker3D]:
+	if not _world_zones.is_empty():
+		return _world_zones.duplicate()
 	var zones: Array[Marker3D] = []
 	for child in get_children():
 		var marker := child as Marker3D
 		if marker != null:
 			zones.append(marker)
 	return zones
+
+
+func set_world_zones(zones: Array[Marker3D]) -> void:
+	_world_zones = zones.duplicate()
 
 
 func recovery_markers() -> Array[Marker3D]:
@@ -251,7 +262,8 @@ func _on_replacement_delay_elapsed(guard: GuardAgentRule) -> void:
 	_release_replacement_record(guard)
 	if guard.state == GuardAgentRule.State.EXHAUSTED and not _replacement_eligible.has(guard):
 		_replacement_eligible.append(guard)
-	process_replacements()
+	if can_process():
+		process_replacements()
 
 
 func _replacement_zone_for(exhausted_guard: GuardAgentRule) -> Marker3D:

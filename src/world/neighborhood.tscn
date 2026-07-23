@@ -1,0 +1,192 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://src/world/neighborhood.gd" id="1_world"]
+[ext_resource type="Environment" path="res://src/world/environment.tres" id="2_environment"]
+[ext_resource type="Script" path="res://src/dogs/spawn_point.gd" id="3_dog_marker"]
+[ext_resource type="Script" path="res://src/world/world_marker.gd" id="4_world_marker"]
+
+[sub_resource type="NavigationMesh" id="NavigationMesh_neighborhood"]
+vertices = PackedVector3Array(-58, 0.05, 58, 58, 0.05, 58, 58, 0.05, -58, -58, 0.05, -58)
+polygons = [PackedInt32Array(0, 1, 2), PackedInt32Array(0, 2, 3)]
+agent_radius = 0.5
+agent_height = 1.8
+
+[node name="Neighborhood" type="Node3D"]
+script = ExtResource("1_world")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = ExtResource("2_environment")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-52, -28, 0)
+light_color = Color(1, 0.94, 0.82, 1)
+light_energy = 1.15
+shadow_enabled = true
+directional_shadow_max_distance = 90.0
+
+[node name="NavigationRegion3D" type="NavigationRegion3D" parent="."]
+navigation_mesh = SubResource("NavigationMesh_neighborhood")
+
+[node name="Roads" type="Node3D" parent="."]
+
+[node name="MainRoadLoop" type="Node3D" parent="Roads"]
+
+[node name="AlleyNorth" type="Node3D" parent="Roads"]
+
+[node name="AlleySouth" type="Node3D" parent="Roads"]
+
+[node name="Yards" type="Node3D" parent="."]
+
+[node name="DeadEnds" type="Node3D" parent="."]
+
+[node name="StaticCollision" type="Node3D" parent="."]
+
+[node name="DogMarkers" type="Node3D" parent="."]
+
+[node name="Dog01" type="Marker3D" parent="DogMarkers"]
+position = Vector3(-31, 0.1, -41)
+script = ExtResource("3_dog_marker")
+stable_id = &"dog_01"
+
+[node name="Dog02" type="Marker3D" parent="DogMarkers"]
+position = Vector3(-10, 0.1, -41)
+script = ExtResource("3_dog_marker")
+stable_id = &"dog_02"
+
+[node name="Dog03" type="Marker3D" parent="DogMarkers"]
+position = Vector3(14, 0.1, -41)
+script = ExtResource("3_dog_marker")
+stable_id = &"dog_03"
+
+[node name="Dog04" type="Marker3D" parent="DogMarkers"]
+position = Vector3(34, 0.1, -41)
+script = ExtResource("3_dog_marker")
+stable_id = &"dog_04"
+
+[node name="Dog05" type="Marker3D" parent="DogMarkers"]
+position = Vector3(40, 0.1, -22)
+script = ExtResource("3_dog_marker")
+stable_id = &"dog_05"
+
+[node name="Dog06" type="Marker3D" parent="DogMarkers"]
+position = Vector3(40, 0.1, 7)
+script = ExtResource("3_dog_marker")
+stable_id = &"dog_06"
+
+[node name="Dog07" type="Marker3D" parent="DogMarkers"]
+position = Vector3(40, 0.1, 39)
+script = ExtResource("3_dog_marker")
+stable_id = &"dog_07"
+
+[node name="Dog08" type="Marker3D" parent="DogMarkers"]
+position = Vector3(13, 0.1, 42)
+script = ExtResource("3_dog_marker")
+stable_id = &"dog_08"
+
+[node name="Dog09" type="Marker3D" parent="DogMarkers"]
+position = Vector3(-13, 0.1, 42)
+script = ExtResource("3_dog_marker")
+stable_id = &"dog_09"
+
+[node name="Dog10" type="Marker3D" parent="DogMarkers"]
+position = Vector3(-39, 0.1, 40)
+script = ExtResource("3_dog_marker")
+stable_id = &"dog_10"
+
+[node name="Dog11" type="Marker3D" parent="DogMarkers"]
+position = Vector3(-40, 0.1, 12)
+script = ExtResource("3_dog_marker")
+stable_id = &"dog_11"
+
+[node name="Dog12" type="Marker3D" parent="DogMarkers"]
+position = Vector3(-40, 0.1, -17)
+script = ExtResource("3_dog_marker")
+stable_id = &"dog_12"
+
+[node name="Dog13" type="Marker3D" parent="DogMarkers"]
+position = Vector3(-24, 0.1, -13)
+script = ExtResource("3_dog_marker")
+stable_id = &"dog_13"
+
+[node name="Dog14" type="Marker3D" parent="DogMarkers"]
+position = Vector3(25, 0.1, 14)
+script = ExtResource("3_dog_marker")
+stable_id = &"dog_14"
+
+[node name="FuelMarkers" type="Node3D" parent="."]
+
+[node name="Fuel01" type="Marker3D" parent="FuelMarkers"]
+position = Vector3(-22, 0.5, -41)
+script = ExtResource("4_world_marker")
+stable_id = &"fuel_01"
+
+[node name="Fuel02" type="Marker3D" parent="FuelMarkers"]
+position = Vector3(26, 0.5, -41)
+script = ExtResource("4_world_marker")
+stable_id = &"fuel_02"
+
+[node name="Fuel03" type="Marker3D" parent="FuelMarkers"]
+position = Vector3(40, 0.5, 0)
+script = ExtResource("4_world_marker")
+stable_id = &"fuel_03"
+
+[node name="Fuel04" type="Marker3D" parent="FuelMarkers"]
+position = Vector3(22, 0.5, 42)
+script = ExtResource("4_world_marker")
+stable_id = &"fuel_04"
+
+[node name="Fuel05" type="Marker3D" parent="FuelMarkers"]
+position = Vector3(-26, 0.5, 42)
+script = ExtResource("4_world_marker")
+stable_id = &"fuel_05"
+
+[node name="Fuel06" type="Marker3D" parent="FuelMarkers"]
+position = Vector3(-40, 0.5, 0)
+script = ExtResource("4_world_marker")
+stable_id = &"fuel_06"
+
+[node name="GuardZones" type="Node3D" parent="."]
+
+[node name="GuardNorth" type="Marker3D" parent="GuardZones"]
+position = Vector3(0, 0.1, -42)
+script = ExtResource("4_world_marker")
+stable_id = &"guard_north"
+kind = 1
+
+[node name="GuardEast" type="Marker3D" parent="GuardZones"]
+position = Vector3(40, 0.1, 28)
+script = ExtResource("4_world_marker")
+stable_id = &"guard_east"
+kind = 1
+
+[node name="GuardWest" type="Marker3D" parent="GuardZones"]
+position = Vector3(-40, 0.1, 28)
+script = ExtResource("4_world_marker")
+stable_id = &"guard_west"
+kind = 1
+
+[node name="RecoveryMarkers" type="Node3D" parent="."]
+
+[node name="RecoveryNorth" type="Marker3D" parent="RecoveryMarkers"]
+position = Vector3(0, 0.1, -31)
+script = ExtResource("4_world_marker")
+stable_id = &"recovery_north"
+kind = 2
+
+[node name="RecoveryEast" type="Marker3D" parent="RecoveryMarkers"]
+position = Vector3(31, 0.1, 15)
+script = ExtResource("4_world_marker")
+stable_id = &"recovery_east"
+kind = 2
+
+[node name="RecoverySouth" type="Marker3D" parent="RecoveryMarkers"]
+position = Vector3(0, 0.1, 31)
+script = ExtResource("4_world_marker")
+stable_id = &"recovery_south"
+kind = 2
+
+[node name="RecoveryWest" type="Marker3D" parent="RecoveryMarkers"]
+position = Vector3(-31, 0.1, 15)
+script = ExtResource("4_world_marker")
+stable_id = &"recovery_west"
+kind = 2
