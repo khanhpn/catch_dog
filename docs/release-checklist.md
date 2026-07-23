@@ -19,7 +19,7 @@ This checklist is owned by the release owner. A green source test or packaged ar
 - [ ] On a physical Windows x86_64 machine, launch the exported archive and complete: menu → tutorial/settings → gameplay → pause/resume → replay/result → quit.
 - [ ] On a physical Intel Mac with an AMD GPU, launch the exported macOS app and complete the same smoke path.
 - [ ] Inspect the macOS executable with `lipo -info` and confirm both `x86_64` and `arm64` slices before calling it Universal 2.
-- [ ] On both systems, verify keyboard controls: arrows steer/drive/brake, Space throws a net, and Escape opens or exits menus.
+- [ ] On both systems, verify keyboard controls: arrows steer/drive/brake, Space throws a net, Escape pauses/resumes gameplay, and focused menu buttons activate from the keyboard.
 - [ ] On both systems, verify a win and each loss path (time expiry, guard contact, and stopping at zero fuel), then replay without restarting the app.
 - [ ] Record device/OS/build evidence, launch result, defects, and tester in the release record.
 

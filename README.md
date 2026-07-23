@@ -38,7 +38,7 @@ Open `project.godot` in the editor, or run the project with the second command. 
 | Up Arrow | Accelerate |
 | Down Arrow | Brake / decelerate |
 | Space | Throw a net at the locked dog |
-| Escape | Pause, or return from a menu |
+| Escape | Pause or resume during gameplay |
 
 ## Testing
 
