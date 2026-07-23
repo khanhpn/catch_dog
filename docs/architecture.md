@@ -70,4 +70,10 @@ Graphics presets are applied when gameplay starts. The current Low preset disabl
 
 `scripts/dev/validate_project.gd` checks the engine line, required inputs, main scene, and the committed Windows/macOS export presets. `tests/test_runner.gd` discovers typed unit and integration suites. `scripts/dev/soak_test.gd` repeatedly resets the composed gameplay scene and exercises high-volume domain lifecycles. The static site has a dependency-free validator.
 
-GitHub Actions uses the official Godot 4.6.3 Linux editor and export templates after verifying pinned SHA-256 digests. Pull requests and `main` produce bounded-retention archives; `v*` tags repeat the gate before creating a release; Pages deploys only the contents of `site/`. CI artifacts remain unsigned and do not satisfy physical hardware, macOS signing, notarization, or performance gates.
+GitHub Actions uses the official Godot 4.6.3 Linux editor and export templates
+after verifying pinned SHA-256 digests. Pull requests produce bounded-retention
+archives. Every successful unique `main` push atomically reserves the next
+patch tag, builds that commit, and publishes its GitHub Release; failed runs
+remove only their own unpublished tag. Pages deploys only the contents of
+`site/`. CI artifacts remain unsigned and do not satisfy physical hardware,
+macOS signing, notarization, or performance gates.

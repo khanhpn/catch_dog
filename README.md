@@ -76,7 +76,7 @@ docs/          Maintenance spec, architecture, performance, and release docs
 scripts/dev/   Godot launcher and project validator
 scripts/ci/    Pinned Godot installer and deterministic packaging
 site/          Dependency-free GitHub Pages landing page
-.github/       Validation/build, tagged release, and Pages workflows
+.github/       Validation/build, continuous release, and Pages workflows
 src/app/       Application router, menus, and settings
 src/session/   Session rules and gameplay composition
 src/dogs/      Dog data, spawning, and behavior
@@ -100,7 +100,18 @@ sha256sum --check SHA256SUMS.txt
 
 On a development machine with Godot 4.6.3 and matching export templates already installed, set `CATCH_DOG_GODOT_BIN` and run only `build_exports.sh`. Outputs are `catch-dog-windows-x86_64.zip`, `catch-dog-macos-universal.zip`, and sorted `SHA256SUMS.txt`. These generated files are ignored by Git.
 
-Pushes and pull requests build 14-day CI artifacts. A `v*` tag creates a GitHub release only after the same validation/build sequence passes. Packaging does not attest that an artifact was launched on a physical machine.
+Pull requests build 14-day CI artifacts. Every successful unique push to
+`main` reserves the next patch version, beginning at `v0.1.0`, builds both
+platform archives, verifies their checksums, and publishes a GitHub Release.
+Concurrent runs retry tag reservation atomically; rerunning the same commit
+reuses its tag. A failed run removes only its own unpublished reserved tag.
+
+Enable **Settings → Actions → General → Workflow permissions → Read and write**
+so the workflow can create tags and releases. Conventional Commit subjects are
+recommended because GitHub uses commit history to generate release notes, but
+every `main` push increments the patch version regardless of prefix.
+
+Packaging does not attest that an artifact was launched on a physical machine.
 
 Before publishing, the release owner must complete the owner-only gates in [docs/release-checklist.md](docs/release-checklist.md), including Windows x86_64 and AMD-GPU Mac smoke tests, target-device performance capture, macOS signing, and notarization.
 

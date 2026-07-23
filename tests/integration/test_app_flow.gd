@@ -24,7 +24,7 @@ func test_corrupt_settings_fields_reset_independently() -> void:
 	check(script != null, "SettingsStore script must load")
 	if script == null:
 		return
-	var path := "res://.godot/test_settings_store.json"
+	var path := "user://test_settings_store.json"
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	check(file != null, "Test settings file must be writable")
 	if file == null:

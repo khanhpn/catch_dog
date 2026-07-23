@@ -4,6 +4,9 @@ set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 readonly GODOT_BIN="${CATCH_DOG_GODOT_BIN:-godot}"
 
+# A Git checkout intentionally excludes `.godot/`. Import assets before any
+# script loads scenes that depend on generated texture resources.
+"$GODOT_BIN" --headless --editor --import --path .
 "$GODOT_BIN" --headless --path . --script scripts/dev/validate_project.gd
 "$GODOT_BIN" --headless --path . --script tests/test_runner.gd
 "$GODOT_BIN" --headless --path . --script scripts/dev/soak_test.gd

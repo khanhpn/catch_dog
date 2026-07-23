@@ -585,13 +585,25 @@ GitHub Actions MUST:
 - reject credential-like or repository metadata in archives;
 - retain normal build artifacts for 14 days;
 - deploy only `site/` to GitHub Pages;
-- create releases only from `v*` tags.
+- start version history at `0.1.0`;
+- reserve exactly one next patch tag for every unique push to `main`;
+- atomically retry tag reservation when release runs overlap;
+- reuse the existing tag when the same commit is rerun;
+- build and attach both platform archives and checksums before publishing;
+- remove only the current run's unpublished tag when that run fails.
 
 Expected artifact names:
 
 - `catch-dog-windows-x86_64.zip`;
 - `catch-dog-macos-universal.zip`;
 - `SHA256SUMS.txt`.
+
+Release automation uses `scripts/ci/next_patch_version.sh` to calculate the
+next version and `scripts/ci/set_release_version.sh` to stamp both macOS export
+version fields. The release workflow MUST have repository contents write
+permission. Conventional Commits improve generated notes but MUST NOT control
+whether a release occurs: every successful unique `main` push advances the
+patch version.
 
 ### 11.2 Release-owner gates
 

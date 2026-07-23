@@ -13,6 +13,8 @@ This checklist is owned by the release owner. A green source test or packaged ar
 - [ ] Build both archives using the repository's release automation; preserve its sorted `SHA256SUMS.txt` with the artifacts.
 - [ ] Verify `SHA256SUMS.txt` against both archives and inspect archive listings for repository metadata or credentials.
 - [ ] Confirm archive names, version/tag, checksums, and release notes match the candidate.
+- [ ] Confirm the continuous-release run created the next patch tag for the exact `main` SHA; do not create a competing manual tag.
+- [ ] Confirm the GitHub Release contains both platform archives and `SHA256SUMS.txt`.
 
 ## Physical smoke gates — owner required
 

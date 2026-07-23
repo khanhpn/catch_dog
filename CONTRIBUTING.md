@@ -37,7 +37,11 @@ CATCH_DOG_TEST_FILTER=test_net_capture scripts/dev/godot.sh --headless --path . 
 4. Test the affected screen interactively in the editor when the change affects player-visible behavior.
 5. Describe the behavior, validation commands, and any platform limitation in the pull request.
 
-Use concise imperative commit subjects, such as `feat: add dog spawn cooldown` or `fix: reset launcher target on replay`. Do not bundle formatting churn, generated files, or unrelated refactors.
+Use concise Conventional Commit subjects, such as
+`feat: add dog spawn cooldown` or `fix: reset launcher target on replay`.
+These subjects make generated release notes easier to read. Every successful
+push to `main` creates the next patch release regardless of commit prefix. Do
+not bundle formatting churn, generated files, or unrelated refactors.
 
 ## GDScript style
 
@@ -104,6 +108,11 @@ Use comments for intent, invariants, engine constraints, or non-obvious calculat
 ## Platform and release boundaries
 
 Source-level checks do not prove a release. The release owner, not a contributor or CI artifact, is responsible for physical Windows x86_64 and AMD-GPU Mac smoke/performance checks and for macOS code signing and notarization. Record the evidence in the release checklist rather than claiming those gates passed without verification.
+
+Merging or pushing a commit to `main` authorizes the continuous-release workflow
+to reserve the next patch tag, validate and build that exact commit, and publish
+the unsigned platform archives. A failed run publishes no release and removes
+its own reserved tag when safe.
 
 ## Pull requests
 
