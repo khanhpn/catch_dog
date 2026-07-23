@@ -1,0 +1,44 @@
+name: Validate and build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: .cache/godot
+          key: godot-4.6.3-${{ runner.os }}-d0bc2113-3fbe2c0e
+      - name: Install pinned Godot and templates
+        run: bash scripts/ci/install_godot.sh
+      - name: Validate static site and release configuration
+        run: |
+          bash scripts/dev/validate_docs.sh
+          bash scripts/dev/validate_site.sh
+          bash scripts/ci/validate_release_config.sh
+      - name: Build release archives
+        run: bash scripts/ci/build_exports.sh
+      - name: Verify checksums
+        run: sha256sum --check SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: catch-dog-${{ github.sha }}
+          path: |
+            catch-dog-windows-x86_64.zip
+            catch-dog-macos-universal.zip
+            SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14

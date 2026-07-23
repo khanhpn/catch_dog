@@ -3,5 +3,9 @@
 .superpowers/
 builds/
 exports/
+.cache/
+catch-dog-windows-x86_64.zip
+catch-dog-macos-universal.zip
+SHA256SUMS.txt
 *.tmp
 *.log
