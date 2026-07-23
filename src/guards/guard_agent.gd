@@ -29,6 +29,7 @@ var _recovery_reachability := Callable()
 var _recovering := false
 var _recovery_target := Vector3.ZERO
 var _recovery_request_pending := false
+var _completed_recovery_targets: Array[Vector3] = []
 
 
 func _ready() -> void:
@@ -87,6 +88,7 @@ func begin_pursuit(player: PlayerVehicleRule) -> void:
 	_forward_speed = 0.0
 	_recovering = false
 	_recovery_request_pending = false
+	_completed_recovery_targets.clear()
 	var exiting_callback := Callable(self, "_on_target_tree_exiting")
 	if not target.tree_exiting.is_connected(exiting_callback):
 		target.tree_exiting.connect(exiting_callback, CONNECT_ONE_SHOT)
@@ -141,6 +143,8 @@ func refresh_navigation_target(validate_route: bool = true) -> void:
 		if route_status is bool and not bool(route_status):
 			recover_or_abandon_navigation()
 			return
+		if route_status is bool and bool(route_status):
+			_completed_recovery_targets.clear()
 	_recovering = false
 	_recovery_request_pending = false
 	_set_navigation_target(intercept)
@@ -163,6 +167,8 @@ func recover_or_abandon_navigation() -> void:
 		if not is_instance_valid(point) or point.is_queued_for_deletion():
 			continue
 		var point_position := point.global_position if point.is_inside_tree() else point.position
+		if _is_completed_recovery(point_position):
+			continue
 		if not _is_recovery_reachable(point_position):
 			continue
 		var distance := _world_position().distance_squared_to(point_position)
@@ -257,8 +263,9 @@ func _update_propulsion(delta: float) -> void:
 			navigation.target_desired_distance,
 			0.5,
 		):
+			_completed_recovery_targets.append(_recovery_target)
 			_recovering = false
-			refresh_navigation_target(false)
+			refresh_navigation_target()
 		_stop_propulsion()
 		return
 	var direction := navigation.get_next_path_position() - _world_position()
@@ -296,6 +303,7 @@ func _end_pursuit_to_idle() -> void:
 	state = State.IDLE
 	_recovering = false
 	_recovery_request_pending = false
+	_completed_recovery_targets.clear()
 	_clear_target()
 	_stop_propulsion()
 	_set_capture_enabled(false)
@@ -342,6 +350,15 @@ func _is_player_valid(player: PlayerVehicleRule) -> bool:
 func _is_recovery_reachable(point_position: Vector3) -> bool:
 	var status: Variant = _route_status(point_position)
 	return status is bool and bool(status)
+
+
+func _is_completed_recovery(point_position: Vector3) -> bool:
+	var navigation := _navigation_agent()
+	var tolerance := maxf(navigation.target_desired_distance, 0.5) if navigation != null else 0.5
+	for completed_position in _completed_recovery_targets:
+		if completed_position.distance_to(point_position) <= tolerance:
+			return true
+	return false
 
 
 func _route_status(target_position: Vector3) -> Variant:

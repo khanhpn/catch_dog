@@ -386,6 +386,50 @@ func test_real_navigation_map_recovers_across_disconnected_regions_and_accepts_a
 	region.free()
 
 
+func test_recovery_arrival_abandons_when_player_remains_on_a_disconnected_region() -> void:
+	var region := _make_disconnected_navigation_region()
+	var guard := _make_guard(Vector3.ZERO)
+	var player := _make_player(Vector3(50.0, 0.0, 0.0))
+	var recovery := Marker3D.new()
+	recovery.position = Vector3(5.0, 0.0, 0.0)
+	add_child(recovery)
+	guard.recovery_points = [recovery]
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	var navigation := guard.get_node("NavigationAgent3D") as NavigationAgent3D
+	var navigation_map := navigation.get_navigation_map()
+	NavigationServer3D.map_force_update(navigation_map)
+	await get_tree().physics_frame
+	guard.begin_pursuit(player)
+	guard.simulate_pursuit(0.25)
+	check(
+		guard.state == GuardAgentRule.State.PURSUING
+		and navigation.target_position.is_equal_approx(recovery.global_position),
+		"The fixture must first enter real same-island recovery",
+	)
+
+	# Advance the real NavigationAgent to completion without invoking production teleportation.
+	guard.global_position = recovery.global_position
+	await get_tree().physics_frame
+	var arrival_position := guard.global_position
+	guard.simulate_pursuit(0.01)
+
+	check(
+		guard.state == GuardAgentRule.State.IDLE and guard.target == null,
+		"Recovery completion must revalidate the disconnected player and abandon when no distinct recovery remains",
+	)
+	check(
+		guard.global_position == arrival_position,
+		"Abandonment after a completed recovery must not teleport the guard",
+	)
+	guard.free()
+	player.free()
+	recovery.free()
+	for region_rid: RID in region.get_meta("region_rids") as Array[RID]:
+		NavigationServer3D.free_rid(region_rid)
+	region.free()
+
+
 func test_director_scene_assigns_stable_world_recovery_points() -> void:
 	var director: GuardDirectorRule = GuardDirectorScene.instantiate() as GuardDirectorRule
 	var guard: GuardAgentRule = GuardAgentScene.instantiate() as GuardAgentRule
