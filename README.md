@@ -76,7 +76,7 @@ docs/          Maintenance spec, architecture, performance, and release docs
 scripts/dev/   Godot launcher and project validator
 scripts/ci/    Pinned Godot installer and deterministic packaging
 site/          Dependency-free GitHub Pages landing page
-.github/       Validation/build, continuous release, and Pages workflows
+.github/       Pull-request validation and unified release/Pages workflows
 src/app/       Application router, menus, and settings
 src/session/   Session rules and gameplay composition
 src/dogs/      Dog data, spawning, and behavior
@@ -104,7 +104,8 @@ Pull requests build 14-day CI artifacts. Every successful unique push to
 `main` reserves the next patch version, beginning at `v0.1.0`, builds both
 platform archives, verifies their checksums, and publishes a GitHub Release.
 Concurrent runs retry tag reservation atomically; rerunning the same commit
-reuses its tag. A failed run removes only its own unpublished reserved tag.
+reuses its tag. After the release succeeds, the same pipeline deploys `site/`
+to GitHub Pages. A failed run removes only its own unpublished reserved tag.
 
 Enable **Settings → Actions → General → Workflow permissions → Read and write**
 so the workflow can create tags and releases. Conventional Commit subjects are

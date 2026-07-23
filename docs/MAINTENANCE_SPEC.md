@@ -600,8 +600,9 @@ Expected artifact names:
 
 Release automation uses `scripts/ci/next_patch_version.sh` to calculate the
 next version and `scripts/ci/set_release_version.sh` to stamp both macOS export
-version fields. The release workflow MUST have repository contents write
-permission. Conventional Commits improve generated notes but MUST NOT control
+version fields. The release workflow MUST have repository contents, Pages, and
+OIDC write permissions. Its Pages job MUST depend on the release job and deploy
+only `site/`. Conventional Commits improve generated notes but MUST NOT control
 whether a release occurs: every successful unique `main` push advances the
 patch version.
 

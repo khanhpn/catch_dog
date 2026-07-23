@@ -74,6 +74,7 @@ GitHub Actions uses the official Godot 4.6.3 Linux editor and export templates
 after verifying pinned SHA-256 digests. Pull requests produce bounded-retention
 archives. Every successful unique `main` push atomically reserves the next
 patch tag, builds that commit, and publishes its GitHub Release; failed runs
-remove only their own unpublished tag. Pages deploys only the contents of
-`site/`. CI artifacts remain unsigned and do not satisfy physical hardware,
-macOS signing, notarization, or performance gates.
+remove only their own unpublished tag. A dependent job then deploys only
+`site/` to Pages, so build or release failure blocks deployment. CI artifacts
+remain unsigned and do not satisfy physical hardware, macOS signing,
+notarization, or performance gates.

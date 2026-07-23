@@ -52,3 +52,4 @@ common/physics_ticks_per_second=60
 [rendering]
 
 rendering_device/fallback_to_opengl3=true
+textures/vram_compression/import_etc2_astc=true
